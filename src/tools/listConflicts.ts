@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getConflictedFiles } from "../lib/git.js";
+import { rateLimiter } from "../lib/rateLimit.js";
 
 export function registerListConflicts(server: McpServer) {
     server.registerTool(
@@ -14,6 +15,10 @@ export function registerListConflicts(server: McpServer) {
             }),
         },
         async ({ page, extension, path }) => {
+            if (!rateLimiter.check("list_conflicts", 2, 60 * 1000)) {
+                return { content: [{ type: "text", text: "Please fix the conflicted files that have already been provided." }], isError: true };
+            }
+
             const pageNum = page || 1;
             const pageSize = 20;
             try {

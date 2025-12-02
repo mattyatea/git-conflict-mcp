@@ -2,17 +2,21 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getConflictedFiles, runGit } from "../lib/git.js";
 import { state } from "../lib/state.js";
+import { rateLimiter } from "../lib/rateLimit.js";
 
 export function registerResolveConflict(server: McpServer) {
     server.registerTool(
         "resolve_conflict",
         {
-            description: "Mark a conflict as resolved (git add) by its ID.",
+            description: "Mark a conflict as resolved (git add) by its ID. You must run post_resolve before running this.",
             inputSchema: z.object({
                 id: z.string().describe("The ID of the file to resolve (from list_conflicts)."),
             }),
         },
         async ({ id }) => {
+            if (!rateLimiter.check("resolve_conflict", 3, 60 * 1000)) {
+                return { content: [{ type: "text", text: "Are you sure you have resolved the conflict correctly? Please check again." }], isError: true };
+            }
             const projectPath = state.getProjectPath();
             if (!projectPath) return { content: [{ type: "text", text: "Project not initialized." }], isError: true };
             try {

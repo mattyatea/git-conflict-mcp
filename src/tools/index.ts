@@ -3,10 +3,12 @@ import { registerInitProject } from "./initProject.js";
 import { registerListConflicts } from "./listConflicts.js";
 import { registerReadConflict } from "./readConflict.js";
 import { registerResolveConflict } from "./resolveConflict.js";
+import { registerPostResolve } from "./postResolve.js";
 
 export function registerTools(server: McpServer) {
     registerInitProject(server);
     registerListConflicts(server);
     registerReadConflict(server);
     registerResolveConflict(server);
+    registerPostResolve(server);
 }
