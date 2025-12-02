@@ -4,6 +4,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { getConflictedFiles } from "../lib/git.js";
 import { state } from "../lib/state.js";
+import { rateLimiter } from "../lib/rateLimit.js";
 
 export function registerReadConflict(server: McpServer) {
     server.registerTool(
@@ -15,6 +16,9 @@ export function registerReadConflict(server: McpServer) {
             }),
         },
         async ({ id }) => {
+            if (!rateLimiter.check("read_conflict", 5, 60 * 1000)) {
+                return { content: [{ type: "text", text: "Rate limit exceeded. You can only read 5 conflicts per minute." }], isError: true };
+            }
             const projectPath = state.getProjectPath();
             if (!projectPath) return { content: [{ type: "text", text: "Project not initialized." }], isError: true };
             try {
