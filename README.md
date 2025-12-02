@@ -35,3 +35,54 @@ bun run index.ts
 ```
 
 This project was created using `bun init` in bun v1.2.9. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+
+## MCP Configuration
+
+### Claude Desktop
+You can add the server using the `claude` CLI:
+
+```bash
+claude mcp add git-conflict-mcp -- /usr/local/bin/git-conflict-mcp
+```
+
+Or manually edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "git-conflict-mcp": {
+      "command": "/usr/local/bin/git-conflict-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+### Codex
+You can add the server using the `codex` CLI:
+
+```bash
+codex mcp add git-conflict-mcp -- git-conflict-mcp
+```
+
+Or manually edit `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.git-conflict-mcp]
+command = "git-conflict-mcp"
+args = []
+```
+
+### JSON Type (Generic)
+Use this configuration for clients that support JSON config.
+
+```json
+{
+  "mcpServers": {
+    "git-conflict-mcp": {
+      "command": "git-conflict-mcp",
+      "args": []
+    }
+  }
+}
+```
