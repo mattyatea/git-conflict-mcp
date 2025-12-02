@@ -1,88 +1,75 @@
 # git-conflict-mcp
 
-## Installation / インストール
+## Usage / 使い方
 
-### English
-You can easily install the latest version using the `install.sh` script. This will download the appropriate binary for your platform from the latest GitHub Release.
+### via npx
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/mattyatea/git-conflict-mcp/main/install.sh | bash
-```
-
-After running the script, follow the instructions to move the binary to your executable path (e.g., `/usr/local/bin`).
-
-### 日本語
-`install.sh` スクリプトを使用して、最新バージョンを簡単にインストールできます。このスクリプトは、GitHubの最新リリースからプラットフォームに適したバイナリをダウンロードします。
+You can run the server directly using `npx`. This requires no manual installation if you have Node.js installed.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mattyatea/git-conflict-mcp/main/install.sh | bash
+npx -y git-conflict-mcp
 ```
-
-スクリプトの実行後、表示される指示に従ってバイナリを実行パス（例: `/usr/local/bin`）に移動してください。
-
-## Development
-
-To install dependencies:
-
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.2.9. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
 
 ## MCP Configuration
 
 ### Claude Desktop
+
 You can add the server using the `claude` CLI:
 
 ```bash
-claude mcp add git-conflict-mcp -- /usr/local/bin/git-conflict-mcp
+claude mcp add git-conflict-mcp -- npx -y git-conflict-mcp
 ```
 
-Or manually edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Or manually edit `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "git-conflict-mcp": {
-      "command": "/usr/local/bin/git-conflict-mcp",
-      "args": []
+      "command": "npx",
+      "args": ["-y", "git-conflict-mcp"]
     }
   }
 }
 ```
 
 ### Codex
+
 You can add the server using the `codex` CLI:
 
 ```bash
-codex mcp add git-conflict-mcp -- git-conflict-mcp
-```
-
-Or manually edit `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.git-conflict-mcp]
-command = "git-conflict-mcp"
-args = []
+codex mcp add git-conflict-mcp -- npx -y git-conflict-mcp
 ```
 
 ### JSON Type (Generic)
-Use this configuration for clients that support JSON config.
 
 ```json
 {
   "mcpServers": {
     "git-conflict-mcp": {
-      "command": "git-conflict-mcp",
-      "args": []
+      "command": "npx",
+      "args": ["-y", "git-conflict-mcp"]
     }
   }
 }
+```
+
+## Development
+
+To install dependencies:
+
+```bash
+npm install
+```
+
+To build:
+
+```bash
+npm run build
+```
+
+To run locally:
+
+```bash
+npm start
 ```

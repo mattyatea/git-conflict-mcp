@@ -36,3 +36,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Build artifacts
 git-conflict-mcp
 *.bun-build
+test_repo/

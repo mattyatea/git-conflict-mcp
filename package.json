@@ -1,17 +1,19 @@
 {
   "name": "git-conflict-mcp",
-  "module": "index.ts",
+  "version": "1.0.0",
   "type": "module",
-  "private": true,
+  "main": "dist/index.js",
+  "bin": {
+    "git-conflict-mcp": "dist/index.js"
+  },
   "scripts": {
-    "build": "bun build --compile --outfile git-conflict-mcp index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.23.0",
