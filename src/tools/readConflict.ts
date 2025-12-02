@@ -10,7 +10,7 @@ export function registerReadConflict(server: McpServer) {
     server.registerTool(
         "read_conflict",
         {
-            description: "Read the content of a conflicted file by its ID.",
+            description: "Read the content of a conflicted file by its ID. (Rate limit: 5 calls per minute)",
             inputSchema: z.object({
                 id: z.string().describe("The ID of the file to read (from list_conflicts)."),
             }),

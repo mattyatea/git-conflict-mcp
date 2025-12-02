@@ -7,7 +7,7 @@ export function registerListConflicts(server: McpServer) {
     server.registerTool(
         "list_conflicts",
         {
-            description: "List files with git conflicts. Returns a map of ID to file path.",
+            description: "List files with git conflicts. Returns a map of ID to file path. (Rate limit: 2 calls per minute)",
             inputSchema: z.object({
                 page: z.number().optional().describe("Page number (1-based). Default is 1."),
                 extension: z.string().optional().describe("Filter by file extension (e.g. 'ts', '.ts')."),
