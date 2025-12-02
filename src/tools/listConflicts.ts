@@ -10,11 +10,12 @@ export function registerListConflicts(server: McpServer) {
             inputSchema: z.object({
                 page: z.number().optional().describe("Page number (1-based). Default is 1."),
                 extension: z.string().optional().describe("Filter by file extension (e.g. 'ts', '.ts')."),
+                path: z.string().optional().describe("Filter by file path (substring match)."),
             }),
         },
-        async ({ page, extension }) => {
+        async ({ page, extension, path }) => {
             const pageNum = page || 1;
-            const pageSize = 50;
+            const pageSize = 20;
             try {
                 const allFiles = await getConflictedFiles();
 
@@ -27,6 +28,10 @@ export function registerListConflicts(server: McpServer) {
                 if (extension) {
                     const ext = extension.startsWith('.') ? extension : `.${extension}`;
                     filesWithIds = filesWithIds.filter(item => item.file.endsWith(ext));
+                }
+
+                if (path) {
+                    filesWithIds = filesWithIds.filter(item => item.file.includes(path));
                 }
 
                 const start = (pageNum - 1) * pageSize;
