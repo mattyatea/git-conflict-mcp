@@ -11,10 +11,11 @@ export function registerResolveConflict(server: McpServer) {
             description: "Mark a conflict as resolved (git add) by its ID. You must run post_resolve before running this.",
             inputSchema: z.object({
                 id: z.string().describe("The ID of the file to resolve (from list_conflicts)."),
+                force: z.boolean().optional().describe("Force resolution, bypassing the safety check."),
             }),
         },
-        async ({ id }) => {
-            if (!rateLimiter.check("resolve_conflict", 3, 60 * 1000)) {
+        async ({ id, force }) => {
+            if (!force && !rateLimiter.check("resolve_conflict", 3, 60 * 1000)) {
                 return { content: [{ type: "text", text: "Are you sure you have resolved the conflict correctly? Please check again." }], isError: true };
             }
             const projectPath = state.getProjectPath();
