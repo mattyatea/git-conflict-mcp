@@ -1,6 +1,6 @@
 {
   "name": "git-conflict-mcp",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
