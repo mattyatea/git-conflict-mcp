@@ -1,4 +1,8 @@
 import { state } from "./state.js";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { stat } from "fs/promises";
+import { join } from "path";
 
 export async function runGit(args: string[]): Promise<string> {
   const projectPath = state.getProjectPath();
@@ -6,8 +10,6 @@ export async function runGit(args: string[]): Promise<string> {
     throw new Error("Project not initialized. Call init_project first.");
   }
 
-  const { execFile } = await import("child_process");
-  const { promisify } = await import("util");
   const execFileAsync = promisify(execFile);
 
   try {
@@ -38,6 +40,7 @@ export interface ConflictInfo {
   file: string;
   status: string;
   conflictType: string;
+  fileSize?: number; // Size in bytes, undefined if file doesn't exist
 }
 
 /**
@@ -57,6 +60,11 @@ export async function getConflictedFilesWithStatus(): Promise<ConflictInfo[]> {
     const lines = output.split("\n").map(s => s.trim()).filter(s => s.length > 0);
 
     const conflicts: ConflictInfo[] = [];
+    const projectPath = state.getProjectPath();
+    if (!projectPath) {
+      throw new Error("Project not initialized. Call init_project first.");
+    }
+
     for (const line of lines) {
       // Format: XY filename
       // X = index status, Y = working tree status
@@ -92,7 +100,18 @@ export async function getConflictedFilesWithStatus(): Promise<ConflictInfo[]> {
             conflictType = "unknown";
         }
 
-        conflicts.push({ file, status, conflictType });
+        // Get file size if file exists
+        let fileSize: number | undefined;
+        try {
+          const filePath = join(projectPath, file);
+          const stats = await stat(filePath);
+          fileSize = stats.size;
+        } catch (e) {
+          // File doesn't exist (deleted), fileSize remains undefined
+          fileSize = undefined;
+        }
+
+        conflicts.push({ file, status, conflictType, fileSize });
       }
     }
 
