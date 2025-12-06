@@ -24,20 +24,23 @@ export function registerListConflicts(server: McpServer) {
             try {
                 const allFiles = await getConflictedFiles();
 
-                // Map to objects with original ID
-                let filesWithIds = allFiles.map((file, index) => ({
-                    file,
-                    id: (index + 1).toString()
-                }));
+                // Apply filters first
+                let filteredFiles = allFiles;
 
                 if (extension) {
                     const ext = extension.startsWith('.') ? extension : `.${extension}`;
-                    filesWithIds = filesWithIds.filter(item => item.file.endsWith(ext));
+                    filteredFiles = filteredFiles.filter(file => file.endsWith(ext));
                 }
 
                 if (path) {
-                    filesWithIds = filesWithIds.filter(item => item.file.includes(path));
+                    filteredFiles = filteredFiles.filter(file => file.includes(path));
                 }
+
+                // Assign IDs after filtering so they are sequential
+                const filesWithIds = filteredFiles.map((file, index) => ({
+                    file,
+                    id: (index + 1).toString()
+                }));
 
                 const start = (pageNum - 1) * pageSize;
                 const end = start + pageSize;
