@@ -8,7 +8,8 @@ import { registerResources } from "./src/resources/index.js";
 const server = new McpServer({
     name: "git-conflict-manager",
     version: "1.0.0",
-});
+},
+    { capabilities: { resources: {}, tools: {} } });
 
 // Register Resources
 registerResources(server);

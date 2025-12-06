@@ -7,7 +7,7 @@ import { getConflictedFilesWithStatus } from "../lib/git.js";
 
 export function registerConflictListResource(server: McpServer) {
     // Register resource list handler
-    server.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    server.setRequestHandler(ListResourcesRequestSchema, async () => {
         return {
             resources: [
                 {
@@ -21,7 +21,7 @@ export function registerConflictListResource(server: McpServer) {
     });
 
     // Register resource read handler
-    server.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         const uri = request.params.uri;
 
         if (uri === "conflict://list") {
