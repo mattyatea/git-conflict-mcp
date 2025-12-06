@@ -1,30 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-    ListResourcesRequestSchema,
-    ReadResourceRequestSchema
-} from "@modelcontextprotocol/sdk/types.js";
 import { getConflictedFilesWithStatus } from "../lib/git.js";
 
 export function registerConflictListResource(server: McpServer) {
-    // Register resource list handler
-    server.setRequestHandler(ListResourcesRequestSchema, async () => {
-        return {
-            resources: [
-                {
-                    uri: "conflict://list",
-                    name: "Git Conflict List",
-                    description: "List of all files with git conflicts including conflict types and resolution suggestions",
-                    mimeType: "application/json"
-                }
-            ]
-        };
-    });
-
-    // Register resource read handler
-    server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-        const uri = request.params.uri;
-
-        if (uri === "conflict://list") {
+    // Register resource using the modern registerResource API
+    server.registerResource(
+        "Git Conflict List",
+        "conflict://list",
+        {
+            description: "List of all files with git conflicts including conflict types and resolution suggestions",
+            mimeType: "application/json"
+        },
+        async (uri) => {
             try {
                 const allConflicts = await getConflictedFilesWithStatus();
 
@@ -48,7 +34,7 @@ export function registerConflictListResource(server: McpServer) {
                 return {
                     contents: [
                         {
-                            uri: uri,
+                            uri: uri.toString(),
                             mimeType: "application/json",
                             text: JSON.stringify(result, null, 2)
                         }
@@ -58,7 +44,7 @@ export function registerConflictListResource(server: McpServer) {
                 return {
                     contents: [
                         {
-                            uri: uri,
+                            uri: uri.toString(),
                             mimeType: "application/json",
                             text: JSON.stringify({ error: e.message }, null, 2)
                         }
@@ -66,9 +52,7 @@ export function registerConflictListResource(server: McpServer) {
                 };
             }
         }
-
-        throw new Error(`Unknown resource: ${uri}`);
-    });
+    );
 }
 
 /**
