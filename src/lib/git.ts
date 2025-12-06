@@ -33,3 +33,72 @@ export async function getConflictedFiles(): Promise<string[]> {
     throw e;
   }
 }
+
+export interface ConflictInfo {
+  file: string;
+  status: string;
+  conflictType: string;
+}
+
+/**
+ * Get detailed conflict information including conflict types
+ * Status codes from git status --porcelain:
+ * - DD: both deleted
+ * - AU: added by us
+ * - UD: deleted by them
+ * - UA: added by them
+ * - DU: deleted by us
+ * - AA: both added
+ * - UU: both modified
+ */
+export async function getConflictedFilesWithStatus(): Promise<ConflictInfo[]> {
+  try {
+    const output = await runGit(["status", "--porcelain"]);
+    const lines = output.split("\n").map(s => s.trim()).filter(s => s.length > 0);
+
+    const conflicts: ConflictInfo[] = [];
+    for (const line of lines) {
+      // Format: XY filename
+      // X = index status, Y = working tree status
+      const status = line.substring(0, 2);
+      const file = line.substring(3);
+
+      // Only include unmerged files (conflicts)
+      if (["DD", "AU", "UD", "UA", "DU", "AA", "UU"].includes(status)) {
+        let conflictType: string;
+        switch (status) {
+          case "DD":
+            conflictType = "both deleted";
+            break;
+          case "AU":
+            conflictType = "added by us";
+            break;
+          case "UD":
+            conflictType = "deleted by them";
+            break;
+          case "UA":
+            conflictType = "added by them";
+            break;
+          case "DU":
+            conflictType = "deleted by us";
+            break;
+          case "AA":
+            conflictType = "both added";
+            break;
+          case "UU":
+            conflictType = "both modified";
+            break;
+          default:
+            conflictType = "unknown";
+        }
+
+        conflicts.push({ file, status, conflictType });
+      }
+    }
+
+    return conflicts.sort((a, b) => a.file.localeCompare(b.file));
+  } catch (e) {
+    throw e;
+  }
+}
+
