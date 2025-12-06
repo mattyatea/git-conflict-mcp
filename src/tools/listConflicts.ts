@@ -58,6 +58,7 @@ export function registerListConflicts(server: McpServer) {
                         result[item.id] = {
                             file: item.file,
                             conflictType: item.conflictType,
+                            fileSize: item.fileSize !== undefined ? `${item.fileSize} bytes` : "N/A (file deleted)",
                             suggestion: suggestion
                         };
                     });
