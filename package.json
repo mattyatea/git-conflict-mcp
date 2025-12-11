@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "webui": "node dist/src/webui/server.js",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
