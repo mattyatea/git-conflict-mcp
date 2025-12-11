@@ -20,6 +20,7 @@ export interface PendingResolve {
     projectPath: string;
     type: "resolve" | "delete" | "add";
     fileContent?: string;     // Current file content (if exists)
+    gitDiff?: string;         // Git diff output
     timestamp: number;
 }
 
@@ -286,14 +287,12 @@ function getIndexHtml(): string {
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            padding: 1rem;
-            max-height: 400px;
+            padding: 0;
+            max-height: 500px;
             overflow: auto;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.8125rem;
-            line-height: 1.7;
-            white-space: pre-wrap;
-            word-break: break-all;
+            line-height: 1.5;
         }
 
         .code-preview .conflict-ours {
@@ -313,6 +312,145 @@ function getIndexHtml(): string {
         .code-preview .conflict-marker {
             color: var(--accent-yellow);
             font-weight: 600;
+        }
+
+        /* Diff styles */
+        .diff-view {
+            width: 100%;
+        }
+
+        .diff-line {
+            display: flex;
+            min-height: 1.75em;
+        }
+
+        .diff-line-num {
+            width: 50px;
+            min-width: 50px;
+            padding: 0 0.5rem;
+            text-align: right;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            user-select: none;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .diff-line-content {
+            flex: 1;
+            padding: 0 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .diff-line.addition {
+            background: rgba(46, 160, 67, 0.2);
+        }
+
+        .diff-line.addition .diff-line-num {
+            background: rgba(46, 160, 67, 0.3);
+            color: var(--accent-green);
+        }
+
+        .diff-line.addition .diff-line-content::before {
+            content: '+';
+            color: var(--accent-green);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .diff-line.deletion {
+            background: rgba(248, 81, 73, 0.2);
+        }
+
+        .diff-line.deletion .diff-line-num {
+            background: rgba(248, 81, 73, 0.3);
+            color: var(--accent-red);
+        }
+
+        .diff-line.deletion .diff-line-content::before {
+            content: '-';
+            color: var(--accent-red);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .diff-line.context .diff-line-content::before {
+            content: ' ';
+            margin-right: 0.5rem;
+        }
+
+        .diff-line.header {
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+
+        .diff-line.header .diff-line-num {
+            background: rgba(88, 166, 255, 0.15);
+        }
+
+        .diff-line.hunk-header {
+            background: rgba(136, 87, 255, 0.15);
+            color: #a371f7;
+        }
+
+        .diff-line.hunk-header .diff-line-num {
+            background: rgba(136, 87, 255, 0.2);
+        }
+
+        .diff-stats {
+            display: flex;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .diff-stats .additions {
+            color: var(--accent-green);
+        }
+
+        .diff-stats .deletions {
+            color: var(--accent-red);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .view-toggle button {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8125rem;
+            transition: all 0.2s;
+        }
+
+        .view-toggle button.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .view-toggle button:hover:not(.active) {
+            background: var(--border-color);
+        }
+
+        .raw-content {
+            padding: 1rem;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
 
         .card-actions {
@@ -482,6 +620,101 @@ function getIndexHtml(): string {
                 .replace(/^(&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*$)/gm, '<span class="conflict-marker">$1</span>');
         }
 
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function parseAndRenderDiff(diffText) {
+            if (!diffText || diffText.trim() === '') {
+                return '<div class="raw-content" style="color: var(--text-secondary);">差分情報がありません</div>';
+            }
+
+            const lines = diffText.split('\n');
+            let html = '<div class="diff-view">';
+            let additions = 0;
+            let deletions = 0;
+            let lineNumber = 0;
+
+            lines.forEach((line, index) => {
+                let lineClass = 'context';
+                let displayLineNum = '';
+                const escapedLine = escapeHtml(line);
+
+                if (line.startsWith('diff --git') || line.startsWith('index ') || 
+                    line.startsWith('---') || line.startsWith('+++')) {
+                    lineClass = 'header';
+                } else if (line.startsWith('@@')) {
+                    lineClass = 'hunk-header';
+                    // Parse line numbers from hunk header
+                    const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)/);
+                    if (match) {
+                        lineNumber = parseInt(match[1]) - 1;
+                    }
+                } else if (line.startsWith('+') && !line.startsWith('+++')) {
+                    lineClass = 'addition';
+                    additions++;
+                    lineNumber++;
+                    displayLineNum = lineNumber.toString();
+                } else if (line.startsWith('-') && !line.startsWith('---')) {
+                    lineClass = 'deletion';
+                    deletions++;
+                    displayLineNum = '';
+                } else if (line.trim() !== '' || index < lines.length - 1) {
+                    lineClass = 'context';
+                    lineNumber++;
+                    displayLineNum = lineNumber.toString();
+                }
+
+                // Remove the leading +/- for display (we show it via CSS)
+                let displayContent = escapedLine;
+                if (lineClass === 'addition' || lineClass === 'deletion') {
+                    displayContent = escapedLine.substring(1);
+                }
+
+                html += '<div class="diff-line ' + lineClass + '">' +
+                    '<span class="diff-line-num">' + displayLineNum + '</span>' +
+                    '<span class="diff-line-content">' + displayContent + '</span>' +
+                    '</div>';
+            });
+
+            html += '</div>';
+
+            // Add stats header
+            const statsHtml = '<div class="diff-stats">' +
+                '<span class="additions">+' + additions + ' 追加</span>' +
+                '<span class="deletions">-' + deletions + ' 削除</span>' +
+                '</div>';
+
+            return statsHtml + html;
+        }
+
+        function renderContent(item, viewMode) {
+            if (viewMode === 'diff' && item.gitDiff) {
+                return parseAndRenderDiff(item.gitDiff);
+            } else {
+                return '<div class="raw-content">' + highlightConflicts(item.fileContent) + '</div>';
+            }
+        }
+
+        function toggleView(id, viewMode) {
+            const container = document.querySelector('#content-' + id);
+            const item = window.pendingData.find(i => i.id === id);
+            if (container && item) {
+                container.innerHTML = renderContent(item, viewMode);
+            }
+            // Update button states
+            document.querySelectorAll('#card-' + id + ' .view-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const activeBtn = document.querySelector('#card-' + id + ' .view-toggle button[data-view="' + viewMode + '"]');
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        window.pendingData = [];
+
         function getTypeLabel(type) {
             switch(type) {
                 case 'resolve': return 'Resolve (git add)';
@@ -520,6 +753,8 @@ function getIndexHtml(): string {
                     return;
                 }
 
+                window.pendingData = data;
+
                 container.innerHTML = \`
                     <h2 class="section-title">確認待ちの解決リクエスト</h2>
                     <div class="pending-list">
@@ -536,7 +771,11 @@ function getIndexHtml(): string {
                                     <span class="type-badge type-\${item.type}">\${getTypeLabel(item.type)}</span>
                                 </div>
                                 <div class="card-content">
-                                    <div class="code-preview">\${highlightConflicts(item.fileContent)}</div>
+                                    <div class="view-toggle">
+                                        <button data-view="diff" class="\${item.gitDiff ? 'active' : ''}" onclick="toggleView('\${item.id}', 'diff')">📊 差分表示</button>
+                                        <button data-view="raw" class="\${!item.gitDiff ? 'active' : ''}" onclick="toggleView('\${item.id}', 'raw')">📄 ファイル内容</button>
+                                    </div>
+                                    <div class="code-preview" id="content-\${item.id}">\${renderContent(item, item.gitDiff ? 'diff' : 'raw')}</div>
                                     <div class="timestamp">リクエスト時刻: \${formatTime(item.timestamp)}</div>
                                 </div>
                                 <div class="card-actions">
@@ -653,6 +892,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                 const id = generateId();
 
                 const fileContent = await getFileContent(data.absolutePath);
+                const gitDiff = await getGitDiff(data.filePath, data.projectPath);
 
                 const pending: PendingResolve = {
                     id,
@@ -661,6 +901,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                     projectPath: data.projectPath,
                     type: data.type || "resolve",
                     fileContent,
+                    gitDiff,
                     timestamp: Date.now(),
                 };
 
