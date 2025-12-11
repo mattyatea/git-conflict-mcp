@@ -632,7 +632,7 @@ function getIndexHtml(): string {
                 return '<div class="raw-content" style="color: var(--text-secondary);">差分情報がありません</div>';
             }
 
-            const lines = diffText.split('\n');
+            const lines = diffText.split('\\n');
             let html = '<div class="diff-view">';
             let additions = 0;
             let deletions = 0;
@@ -649,7 +649,7 @@ function getIndexHtml(): string {
                 } else if (line.startsWith('@@')) {
                     lineClass = 'hunk-header';
                     // Parse line numbers from hunk header
-                    const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)/);
+                    const match = line.match(/@@ -\\d+(?:,\\d+)? \\+(\\d+)/);
                     if (match) {
                         lineNumber = parseInt(match[1]) - 1;
                     }
