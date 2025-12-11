@@ -46,6 +46,10 @@ async function shutdown(signal: string) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
+// Handle stdin close (MCP client disconnected)
+process.stdin.on("close", () => shutdown("stdin close"));
+process.stdin.on("end", () => shutdown("stdin end"));
+
 // Handle process exit
 process.on("exit", () => {
     webuiServer.close();
