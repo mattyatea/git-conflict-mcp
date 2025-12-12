@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useConflicts } from '../composables/useConflicts'
 import { useEditorSettings } from '../composables/useEditorSettings'
+import { useDiff } from '../composables/useDiff'
 
 const { 
   selectedItem, 
@@ -17,6 +18,8 @@ const {
   showOpenMenu, 
   showSettings 
 } = useEditorSettings()
+
+const { getFirstConflictLine } = useDiff()
 </script>
 
 <template>
@@ -42,7 +45,7 @@ const {
               :class="preferredEditor ? 'bg-bg-tertiary border-border-color' : ''">
            
            <!-- Main Button -->
-           <button @click="openInEditor(selectedItem.absolutePath)"
+           <button @click="openInEditor(selectedItem.absolutePath, undefined, getFirstConflictLine())"
                    :title="preferredEditor ? `${editors.find(e => e.id === preferredEditor)?.label}で開く` : 'エディタで開く'"
                    class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-colors"
                    :class="!preferredEditor ? 'hover:bg-bg-tertiary rounded-md' : 'pr-2'">
@@ -70,7 +73,7 @@ const {
            </div>
            <button v-for="editor in editors" 
                    :key="editor.id"
-                   @click="openInEditor(selectedItem.absolutePath, editor.id)" 
+                   @click="openInEditor(selectedItem.absolutePath, editor.id, getFirstConflictLine())" 
                    class="w-full text-left px-4 py-2 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors flex items-center justify-between group/item">
              <span>{{ editor.label }}で開く</span>
              <span v-if="preferredEditor === editor.id" class="text-accent-primary">✓</span>

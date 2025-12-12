@@ -32,7 +32,7 @@ export function useEditorSettings() {
         showOpenMenu.value = false // Close menu if open
     }
 
-    const openInEditor = (path: string, inputEditor?: EditorType) => {
+    const openInEditor = (path: string, inputEditor?: EditorType, line?: number) => {
         // Use input editor, or preferred editor, or fallback to menu return false to indicate menu should open
         const editor = inputEditor || preferredEditor.value
 
@@ -53,15 +53,19 @@ export function useEditorSettings() {
         switch (editor) {
             case 'webstorm':
                 url = `webstorm://open?file=${path}`
+                if (line) url += `&line=${line}`
                 break
             case 'vscode':
                 url = `vscode://file/${path}`
+                if (line) url += `:${line}`
                 break
             case 'cursor':
                 url = `cursor://file/${path}`
+                if (line) url += `:${line}`
                 break
             case 'antigravity':
                 url = `windsurf://file/${path}`
+                if (line) url += `:${line}`
                 break
         }
 

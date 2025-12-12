@@ -1,25 +1,7 @@
 import { ref, watch, type Ref } from 'vue'
-import hljs from 'highlight.js/lib/core';
-import javascript from 'highlight.js/lib/languages/javascript';
-import typescript from 'highlight.js/lib/languages/typescript';
-import json from 'highlight.js/lib/languages/json';
-import xml from 'highlight.js/lib/languages/xml';
-import css from 'highlight.js/lib/languages/css';
-import markdown from 'highlight.js/lib/languages/markdown';
+import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-dark.css';
 import { useConflicts } from './useConflicts';
-
-// Register languages
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('typescript', typescript);
-hljs.registerLanguage('ts', typescript);
-hljs.registerLanguage('json', json);
-hljs.registerLanguage('xml', xml);
-hljs.registerLanguage('html', xml);
-hljs.registerLanguage('vue', xml);
-hljs.registerLanguage('css', css);
-hljs.registerLanguage('markdown', markdown);
-hljs.registerLanguage('md', markdown);
 
 export interface DiffLine {
     type: 'header' | 'hunk' | 'addition' | 'deletion' | 'context';
@@ -230,6 +212,17 @@ export function useDiff() {
         }
     }
 
+    const getFirstConflictLine = () => {
+        if (!selectedItem.value?.fileContent) return 1
+        const lines = selectedItem.value.fileContent.split('\n')
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes('<<<<<<<')) {
+                return i + 1
+            }
+        }
+        return 1
+    }
+
     return {
         viewModes,
         editContent,
@@ -239,6 +232,7 @@ export function useDiff() {
         highlightConflicts,
         highlightCode,
         getLineContent,
-        updateLineContent
+        updateLineContent,
+        getFirstConflictLine
     }
 }
