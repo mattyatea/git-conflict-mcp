@@ -9,12 +9,13 @@
   "main": "dist/index.js",
   "bin": {
     "git-conflict-mcp": "dist/index.js",
-    "git-conflict-mcp-webui": "dist/webui/server.js"
+    "git-conflict-mcp-webui": "dist/src/webui/server.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:webui && tsc",
     "build:webui": "vite build",
-    "build:all": "npm run build:webui && npm run build",
+    "build:core": "tsc",
+    "build:all": "npm run build",
     "prepublishOnly": "npm run build:all",
     "dev:webui": "vite",
     "start": "node dist/index.js",

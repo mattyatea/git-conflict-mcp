@@ -270,7 +270,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                 }
 
                 if (comment) {
-                    console.log(`[Resolution Comment for ${pending.filePath}]: ${comment}`);
+                    console.error(`[Resolution Comment for ${pending.filePath}]: ${comment}`);
                     if (conflictLogger) {
                         conflictLogger(comment);
                     }
@@ -328,7 +328,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                 }
 
                 if (comment && pending) {
-                    console.log(`[Rejection Comment for ${pending.filePath}]: ${comment}`);
+                    console.error(`[Rejection Comment for ${pending.filePath}]: ${comment}`);
                     state.addRejection(pending.filePath, comment);
 
                     if (conflictLogger) {

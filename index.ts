@@ -18,16 +18,16 @@ try {
         console.error(`Using existing WebUI at http://localhost:${webuiPort}`);
         setUseExternalWebUI(`http://localhost:${webuiPort}`);
     } else {
-        console.error(`Error: Port ${webuiPort} is already in use by another application.`);
-        process.exit(1);
+        console.error(`Error: Port ${webuiPort} is already in use by another application. WebUI features might be unavailable.`);
+        // Do not exit, allow MCP server to run even if WebUI fails to start.
     }
 } catch (e: any) {
     if (e?.cause?.code === 'ECONNREFUSED') {
         // Port is free, start our own server
         webuiServer = startWebUIServer(webuiPort);
     } else {
-        console.error(`Error checking WebUI port: ${e.message}`);
-        process.exit(1);
+        console.error(`Error checking WebUI port: ${e.message}. WebUI features might be unavailable.`);
+        // Do not exit
     }
 }
 
