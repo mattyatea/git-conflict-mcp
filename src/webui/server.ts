@@ -20,6 +20,8 @@ const PORT = parseInt(process.env.WEBUI_PORT || "3456");
 // Source: src/webui/server.ts
 // Compiled: dist/src/webui/server.js
 // Static files: dist/webui/
+const WEBUI_IDENTIFIER = "git-conflict-webui-v1";
+export { WEBUI_IDENTIFIER };
 const STATIC_ROOT = path.resolve(__dirname, '../../../dist/webui');
 
 export interface PendingResolve {
@@ -35,20 +37,31 @@ export interface PendingResolve {
 
 // In-memory pending resolves
 const pendingResolves: Map<string, PendingResolve> = new Map();
+let externalWebUIUrl: string | null = null;
+
+// Configure to use external WebUI
+export function setUseExternalWebUI(url: string) {
+    externalWebUIUrl = url;
+}
+
+// Get all pending resolves (local or external)
+export async function getPendingResolves(): Promise<PendingResolve[]> {
+    if (externalWebUIUrl) {
+        try {
+            const res = await fetch(`${externalWebUIUrl}/api/pending`);
+            if (!res.ok) throw new Error(`External WebUI returned ${res.status}`);
+            return await res.json() as PendingResolve[];
+        } catch (e) {
+            console.error("Failed to fetch from external WebUI:", e);
+            return [];
+        }
+    }
+    return Array.from(pendingResolves.values());
+}
 
 // Generate unique ID
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-// Check if a file path is pending resolution
-export function isConflictPending(filePath: string): boolean {
-    for (const pending of pendingResolves.values()) {
-        if (pending.filePath === filePath) {
-            return true;
-        }
-    }
-    return false;
 }
 
 // Run git command
@@ -137,7 +150,14 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         return;
     }
 
+
     // API Routes
+    if (pathname === "/api/health" && method === "GET") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "ok", identifier: WEBUI_IDENTIFIER }));
+        return;
+    }
+
     if (pathname === "/api/pending" && method === "GET") {
         const pending = Array.from(pendingResolves.values());
         res.writeHead(200, { "Content-Type": "application/json" });

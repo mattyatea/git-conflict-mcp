@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getConflictedFilesWithStatus } from "../lib/git.js";
 import { rateLimiter } from "../lib/rateLimit.js";
-import { isConflictPending } from "../webui/server.js";
+import { getPendingResolves } from "../webui/server.js";
 
 export function registerListConflicts(server: McpServer) {
     server.registerTool(
@@ -34,8 +34,12 @@ export function registerListConflicts(server: McpServer) {
                     id: (index + 1).toString()
                 }));
 
-                // Filter out conflicts that are already in the pending list (queued for human verification)
-                let filteredConflicts = conflictsWithIds.filter(c => !isConflictPending(c.file));
+                // Fetch pending resolves (local or external)
+                const pendingResolves = await getPendingResolves();
+                const pendingPaths = new Set(pendingResolves.map(p => p.filePath));
+
+                // Filter out conflicts that are already in the pending list
+                let filteredConflicts = conflictsWithIds.filter(c => !pendingPaths.has(c.file));
 
                 // Apply filters
                 if (extension) {

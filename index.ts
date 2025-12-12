@@ -2,11 +2,34 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerTools } from "./src/tools/index.js";
-import { startWebUIServer } from "./src/webui/server.js";
+import { startWebUIServer, setUseExternalWebUI, WEBUI_IDENTIFIER } from "./src/webui/server.js";
+import { Server } from "http";
 
 // Start WebUI Server (runs on port 3456 by default)
 const webuiPort = parseInt(process.env.WEBUI_PORT || "3456");
-const webuiServer = startWebUIServer(webuiPort);
+let webuiServer: Server | null = null;
+
+try {
+    const res = await fetch(`http://127.0.0.1:${webuiPort}/api/health`);
+    // If we get a response, the port is in use
+    const data = await res.json().catch(() => ({})) as any;
+
+    if (res.ok && data.identifier === WEBUI_IDENTIFIER) {
+        console.error(`Using existing WebUI at http://localhost:${webuiPort}`);
+        setUseExternalWebUI(`http://localhost:${webuiPort}`);
+    } else {
+        console.error(`Error: Port ${webuiPort} is already in use by another application.`);
+        process.exit(1);
+    }
+} catch (e: any) {
+    if (e?.cause?.code === 'ECONNREFUSED') {
+        // Port is free, start our own server
+        webuiServer = startWebUIServer(webuiPort);
+    } else {
+        console.error(`Error checking WebUI port: ${e.message}`);
+        process.exit(1);
+    }
+}
 
 // Server Setup
 const mcpServer = new McpServer({
@@ -26,10 +49,12 @@ await mcpServer.connect(transport);
 async function shutdown(signal: string) {
     console.error(`\n🛑 Received ${signal}, shutting down gracefully...`);
 
-    // Close WebUI server
-    webuiServer.close(() => {
-        console.error("   WebUI server closed");
-    });
+    // Close WebUI server if we started it
+    if (webuiServer) {
+        webuiServer.close(() => {
+            console.error("   WebUI server closed");
+        });
+    }
 
     // Close MCP server connection
     try {
@@ -52,5 +77,7 @@ process.stdin.on("end", () => shutdown("stdin end"));
 
 // Handle process exit
 process.on("exit", () => {
-    webuiServer.close();
+    if (webuiServer) {
+        webuiServer.close();
+    }
 });
