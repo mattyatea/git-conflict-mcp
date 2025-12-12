@@ -145,10 +145,8 @@ export function useDiff() {
         return { stats: { additions, deletions }, lines: parsedLines }
     }
 
-    const highlightConflicts = (content?: string) => {
-        if (!content) return ''
-
-        // Detect language
+    const highlightCode = (text: string) => {
+        if (!text) return '';
         let language = 'plaintext';
         if (selectedItem.value) {
             const ext = selectedItem.value.filePath.split('.').pop()?.toLowerCase();
@@ -156,16 +154,19 @@ export function useDiff() {
                 language = ext;
             }
         }
+        try {
+            return hljs.highlight(text, { language }).value;
+        } catch (e) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+    }
 
-        // Helper to highlight a chunk of code
-        const h = (text: string) => {
-            if (!text) return '';
-            try {
-                return hljs.highlight(text, { language }).value;
-            } catch (e) {
-                return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            }
-        };
+    const highlightConflicts = (content?: string) => {
+        if (!content) return ''
+
+        // Use the shared highlight function, but we need raw text helper for manual construction sometimes?
+        // Actually highlightCode does exactly what 'h' did, mostly.
+        const h = highlightCode;
 
         const fullWidthClass = "block w-[calc(100%+3rem)] -mx-6 px-6 box-border relative";
 
@@ -236,6 +237,7 @@ export function useDiff() {
         getViewMode,
         parseDiff,
         highlightConflicts,
+        highlightCode,
         getLineContent,
         updateLineContent
     }

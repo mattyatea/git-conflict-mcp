@@ -3,7 +3,7 @@ import { useConflicts } from '../composables/useConflicts'
 import { useDiff } from '../composables/useDiff'
 
 const { selectedItem } = useConflicts()
-const { parseDiff, getLineContent, updateLineContent } = useDiff()
+const { parseDiff, getLineContent, updateLineContent, highlightCode } = useDiff()
 </script>
 
 <template>
@@ -20,28 +20,30 @@ const { parseDiff, getLineContent, updateLineContent } = useDiff()
         <div class="w-[50px] shrink-0 text-right px-3 text-text-tertiary/50 select-none border-r border-border-color/30 group-hover/line:text-text-tertiary text-xs bg-bg-subtle/30 leading-[1.6]">
            {{ line.displayLineNum }}
         </div>
-        <div class="flex-1 px-4 whitespace-pre-wrap break-all relative flex items-center">
+        <div class="flex-1 px-4 whitespace-pre relative flex items-center min-w-0">
           <span v-if="line.type === 'addition'" class="absolute left-1.5 text-accent-green opacity-50 select-none">+</span>
           <span v-else-if="line.type === 'deletion'" class="absolute left-1.5 text-accent-red opacity-50 select-none">-</span>
           
           <!-- Editable Content for Context and Addition -->
           <template v-if="line.type !== 'deletion'">
-            <input
-              type="text"
-              :value="getLineContent(line.lineNum)"
-              @input="(e) => updateLineContent(line.lineNum, (e.target as HTMLInputElement).value)"
-              class="w-full bg-transparent border-none outline-none font-mono text-[13px] p-0 m-0 leading-[1.6] text-inherit focus:ring-0"
-              :class="{
-                'text-accent-green': line.type === 'addition',
-                'text-text-tertiary': line.type === 'context',
-                'text-text-primary': line.type === 'context' // Override tertiary on focus? No, context is code.
-              }"
-              spellcheck="false"
-            />
+             <div class="relative w-full">
+                <!-- Highlighted Background -->
+                <div class="absolute inset-0 pointer-events-none select-none overflow-hidden whitespace-pre"
+                     v-html="highlightCode(getLineContent(line.lineNum))">
+                </div>
+                <!-- Input -->
+                <input
+                  type="text"
+                  :value="getLineContent(line.lineNum)"
+                  @input="(e) => updateLineContent(line.lineNum, (e.target as HTMLInputElement).value)"
+                  class="relative z-10 w-full bg-transparent border-none outline-none font-mono text-[13px] p-0 m-0 leading-[1.6] text-transparent caret-text-primary focus:ring-0 whitespace-pre"
+                  spellcheck="false"
+                />
+             </div>
           </template>
           
           <!-- Read-only Content for Deletion -->
-          <span v-else class="text-accent-red">{{ line.content }}</span>
+          <span v-else class="whitespace-pre w-full" v-html="highlightCode(line.content)"></span>
         </div>
       </template>
       <template v-else>
