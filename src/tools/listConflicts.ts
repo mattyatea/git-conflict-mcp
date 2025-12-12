@@ -71,7 +71,7 @@ export function registerListConflicts(server: McpServer) {
                     });
                 }
 
-                if (conflictsWithIds.length > end) {
+                if (filteredConflicts.length > end) {
                     result["isMoreConflict"] = "true";
                 }
 
