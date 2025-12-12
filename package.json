@@ -1,6 +1,10 @@
 {
   "name": "git-conflict-mcp",
   "version": "1.11.3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattyatea/git-conflict-mcp.git"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
