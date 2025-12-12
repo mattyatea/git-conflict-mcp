@@ -42,6 +42,35 @@ const pendingResolves: Map<string, PendingResolve> = new Map();
 let externalWebUIUrl: string | null = null;
 let conflictLogger: ((message: string) => void) | null = null;
 
+const STATE_FILE = path.join(process.cwd(), '.git-conflict-mcp-state.json');
+
+// Load state from disk
+async function loadState() {
+    try {
+        const content = await fs.readFile(STATE_FILE, 'utf-8');
+        const items = JSON.parse(content) as PendingResolve[];
+        items.forEach(item => pendingResolves.set(item.id, item));
+        console.error(`[WebUI] Loaded ${items.length} pending resolves from state`);
+    } catch (e: any) {
+        if (e.code !== 'ENOENT') {
+            console.error('[WebUI] Failed to load state:', e.message);
+        }
+    }
+}
+
+// Save state to disk
+async function saveState() {
+    try {
+        const items = Array.from(pendingResolves.values());
+        await fs.writeFile(STATE_FILE, JSON.stringify(items, null, 2), 'utf-8');
+    } catch (e: any) {
+        console.error('[WebUI] Failed to save state:', e.message);
+    }
+}
+
+// Initial load
+loadState();
+
 // Configure to use external WebUI
 export function setUseExternalWebUI(url: string) {
     externalWebUIUrl = url;
@@ -198,6 +227,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                 };
 
                 pendingResolves.set(id, pending);
+                await saveState();
 
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: true, id }));
@@ -255,6 +285,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                 }
 
                 pendingResolves.delete(id);
+                await saveState();
 
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: true, message }));
@@ -300,6 +331,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                 }
 
                 pendingResolves.delete(id);
+                await saveState();
 
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: true }));
@@ -340,6 +372,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
                 // Update git diff because content changed
                 pending.gitDiff = await getGitDiff(pending.filePath, pending.projectPath);
+                await saveState();
 
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: true }));
