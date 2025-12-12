@@ -143,6 +143,8 @@ const parseDiff = (diffText: string): { stats: { additions: number, deletions: n
   if (!diffText || diffText.trim() === '') return { stats: { additions: 0, deletions: 0 }, lines: [] }
 
   const lines = diffText.split('\n')
+  const isCombined = lines.some(l => l.startsWith('diff --cc') || l.startsWith('@@@'))
+  
   const parsedLines: DiffLine[] = []
   let additions = 0
   let deletions = 0
@@ -151,34 +153,66 @@ const parseDiff = (diffText: string): { stats: { additions: number, deletions: n
   lines.forEach((line, index) => {
     let type: DiffLine['type'] = 'context'
     let displayLineNum = ''
+    let content = line
 
-    if (line.startsWith('diff --git') || line.startsWith('index ') || 
+    if (line.startsWith('diff --git') || line.startsWith('diff --cc') || line.startsWith('index ') || 
         line.startsWith('---') || line.startsWith('+++')) {
       type = 'header'
     } else if (line.startsWith('@@')) {
       type = 'hunk'
-      const match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)/)
+      const match = isCombined 
+        ? line.match(/\+(\d+)/g) // Simplified match for combined, takes last +number
+        : line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)/)
+      
       if (match) {
-        lineNumber = parseInt(match[3]) - 1
+        // For combined, we take the last match which usually corresponds to the merge result line number
+        const val = isCombined && match ? match[match.length - 1] : (match ? match[3] : null)
+        if (val) {
+          lineNumber = parseInt(val.replace('+', '')) - 1
+        }
       }
-    } else if (line.startsWith('+') && !line.startsWith('+++')) {
-      type = 'addition'
-      additions++
-      lineNumber++
-      displayLineNum = lineNumber.toString()
-    } else if (line.startsWith('-') && !line.startsWith('---')) {
-      type = 'deletion'
-      deletions++
-      displayLineNum = ''
-    } else if (line.trim() !== '' || index < lines.length - 1) {
-      type = 'context'
-      lineNumber++
-      displayLineNum = lineNumber.toString()
+    } else if (isCombined) {
+       const prefix = line.substring(0, 2)
+       if (prefix === '++' || prefix === '+ ' || prefix === ' +') {
+         type = 'addition'
+         additions++
+         lineNumber++
+         displayLineNum = lineNumber.toString()
+         content = line.substring(2)
+       } else if (prefix === '--' || prefix === '- ' || prefix === ' -') {
+         type = 'deletion'
+         deletions++
+         displayLineNum = ''
+         content = line.substring(2)
+       } else {
+         type = 'context'
+         lineNumber++
+         displayLineNum = lineNumber.toString()
+         content = line.substring(2)
+       }
+    } else {
+       if (line.startsWith('+') && !line.startsWith('+++')) {
+         type = 'addition'
+         additions++
+         lineNumber++
+         displayLineNum = lineNumber.toString()
+         content = line.substring(1)
+       } else if (line.startsWith('-') && !line.startsWith('---')) {
+         type = 'deletion'
+         deletions++
+         displayLineNum = ''
+         content = line.substring(1)
+       } else if (line.trim() !== '' || index < lines.length - 1) {
+         type = 'context'
+         lineNumber++
+         displayLineNum = lineNumber.toString()
+         if (line.startsWith(' ')) content = line.substring(1)
+       }
     }
 
     parsedLines.push({
       type,
-      content: line,
+      content,
       lineNum: lineNumber,
       displayLineNum
     })
@@ -343,7 +377,7 @@ onUnmounted(() => {
                       'text-accent-green': line.type === 'addition',
                       'text-accent-red': line.type === 'deletion',
                       'text-text-tertiary': line.type === 'context'
-                    }">{{ line.type === 'addition' || line.type === 'deletion' ? line.content.substring(1) : line.content }}</span>
+                    }">{{ line.content }}</span>
                   </div>
                 </template>
                 <template v-else>
