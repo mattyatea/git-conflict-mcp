@@ -130,7 +130,34 @@ export function useDiff() {
         if (!text) return '';
         let language = 'plaintext';
         if (selectedItem.value) {
-            const ext = selectedItem.value.filePath.split('.').pop()?.toLowerCase();
+            let ext = selectedItem.value.filePath.split('.').pop()?.toLowerCase();
+
+            // Map common extensions to highlight.js languages
+            const mapping: Record<string, string> = {
+                'vue': 'xml',
+                'html': 'xml',
+                'js': 'javascript',
+                'cjs': 'javascript',
+                'mjs': 'javascript',
+                'ts': 'typescript',
+                'cts': 'typescript',
+                'mts': 'typescript',
+                'jsx': 'javascript',
+                'tsx': 'typescript',
+                'json': 'json',
+                'css': 'css',
+                'scss': 'scss',
+                'less': 'less',
+                'md': 'markdown',
+                'yml': 'yaml',
+                'yaml': 'yaml',
+                'sh': 'bash'
+            };
+
+            if (ext && mapping[ext]) {
+                ext = mapping[ext];
+            }
+
             if (ext && hljs.getLanguage(ext)) {
                 language = ext;
             }
