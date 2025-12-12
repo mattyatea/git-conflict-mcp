@@ -1,5 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import xml from 'highlight.js/lib/languages/xml';
+import css from 'highlight.js/lib/languages/css';
+import markdown from 'highlight.js/lib/languages/markdown';
+import 'highlight.js/styles/atom-one-dark.css';
+
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('ts', typescript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('vue', xml);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('md', markdown);
 
 interface PendingResolve {
   id: string;
@@ -31,6 +50,7 @@ const selectedItem = computed(() =>
 const viewModes = ref<Record<string, 'diff' | 'edit'>>({})
 const editContent = ref('')
 const backdropScrollTop = ref(0)
+const lineNumbersScrollTop = ref(0)
 
 // Initialize edit content when item changes or mode changes
 watch([selectedId, () => viewModes.value[selectedId.value || '']], ([newId, newMode]) => {
@@ -126,6 +146,7 @@ const getViewMode = (item: PendingResolve) => {
 const handleScroll = (e: Event) => {
   const target = e.target as HTMLTextAreaElement
   backdropScrollTop.value = target.scrollTop
+  lineNumbersScrollTop.value = target.scrollTop
 }
 
 const getTypeLabel = (type: string) => {
@@ -211,47 +232,69 @@ const rejectResolve = async (id: string) => {
 const highlightConflicts = (content?: string) => {
   if (!content) return ''
   
-  // Basic HTML escape (preserve existing functionality)
-  const escaped = content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+  // Detect language
+  let language = 'plaintext';
+  if (selectedItem.value) {
+    const ext = selectedItem.value.filePath.split('.').pop()?.toLowerCase();
+    if (ext && hljs.getLanguage(ext)) {
+      language = ext;
+    }
+  }
 
-  // Enhanced highlighting for Git conflicts
-  // We match the standard git conflict markers and their content
-  // <<<<<<< HEAD ... ======= ... >>>>>>> ...
-  // Using negative margins (-mx-6) to extend background to edges while keeping text aligned (px-6)
-  // matching the parent p-6 padding.
-  // CRITICAL: We normally avoid padding/borders that affect height to ensure alignment with the overlay textarea.
-  // We use box-shadow for borders to avoid layout shifts.
+  // Helper to highlight a chunk of code
+  const h = (text: string) => {
+    if (!text) return '';
+    try {
+      return hljs.highlight(text, { language }).value;
+    } catch (e) {
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  };
+
   const fullWidthClass = "block w-[calc(100%+3rem)] -mx-6 px-6 box-border relative";
   
-  return escaped.replace(
-    /(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*?$)([\s\S]*?)(^=======.*?$)([\s\S]*?)(^&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*?$)/gm,
-    (match, start, ours, mid, theirs, end) => {
-      // Styles for Ours (Current) - Blue theme
-      // shadow-[inset_0_1px_0_0_#3b82f64d] simulates border-top with 30% opacity blue
+  const regex = /(<<<<<<<.*?$)([\s\S]*?)(^=======.*?$)([\s\S]*?)(^>>>>>>>.*?$)/gm;
+  
+  let lastIndex = 0;
+  let html = '';
+  let match;
+
+  while ((match = regex.exec(content)) !== null) {
+      const [fullMatch, startMarker, ours, midMarker, theirs, endMarker] = match;
+      const index = match.index;
+
+      // Highlight context before conflict
+      if (index > lastIndex) {
+          html += h(content.substring(lastIndex, index));
+      }
+
+      // Styles
       const oursMarkerStyle = `${fullWidthClass} text-accent-blue font-bold opacity-75 bg-accent-blue/20 shadow-[inset_0_1px_0_0_rgba(59,130,246,0.3)]`;
       const oursContentStyle = `${fullWidthClass} text-text-primary bg-accent-blue/10`; 
       const oursLabel = `<span class="absolute right-6 top-0 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider leading-6">Current (HEAD)</span>`;
       
-      // Styles for Theirs (Incoming) - Green theme
-      // shadow-[inset_0_-1px_0_0_#22c55e4d] simulates border-bottom
+      const midStyle = `${fullWidthClass} text-text-tertiary font-bold opacity-50 bg-bg-tertiary shadow-[inset_0_1px_0_0_rgba(39,39,42,1),inset_0_-1px_0_0_rgba(39,39,42,1)]`;
+
       const theirsMarkerStyle = `${fullWidthClass} text-accent-green font-bold opacity-75 bg-accent-green/20 shadow-[inset_0_-1px_0_0_rgba(34,197,94,0.3)]`;
       const theirsContentStyle = `${fullWidthClass} text-text-primary bg-accent-green/10`;
       const theirsLabel = `<span class="absolute right-6 top-0 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider leading-6">Incoming</span>`;
 
-      // Middle separator style
-      // shadow for border-y
-      const midStyle = `${fullWidthClass} text-text-tertiary font-bold opacity-50 bg-bg-tertiary shadow-[inset_0_1px_0_0_rgba(39,39,42,1),inset_0_-1px_0_0_rgba(39,39,42,1)]`;
+      // Append conflict block
+      html += `<div class="${oursMarkerStyle}">${h(startMarker)}${oursLabel}</div>` +
+              `<div class="${oursContentStyle}">${h(ours)}</div>` +
+              `<div class="${midStyle}">${h(midMarker)}</div>` +
+              `<div class="${theirsContentStyle}">${h(theirs)}</div>` +
+              `<div class="${theirsMarkerStyle}">${h(endMarker)}${theirsLabel}</div>`;
+      
+      lastIndex = regex.lastIndex;
+  }
 
-      return `<div class="${oursMarkerStyle}">${start}${oursLabel}</div>` +
-             `<div class="${oursContentStyle}">${ours}</div>` +
-             `<div class="${midStyle}">${mid}</div>` +
-             `<div class="${theirsContentStyle}">${theirs}</div>` +
-             `<div class="${theirsMarkerStyle}">${end}${theirsLabel}</div>`;
-    }
-  );
+  // Highlight remaining text
+  if (lastIndex < content.length) {
+      html += h(content.substring(lastIndex));
+  }
+
+  return html;
 }
 
 const saveContent = async (id: string, content: string) => {
@@ -628,20 +671,30 @@ onUnmounted(() => {
             </div>
           </template>
           <template v-else>
-            <div class="relative h-full w-full flex-1 overflow-hidden bg-bg-primary">
-              <!-- Backdrop for highlighting -->
-              <div class="absolute inset-0 pointer-events-none p-6 font-mono text-[13px] leading-6 whitespace-pre-wrap break-all overflow-hidden z-0"
-                   :scrollTop="backdropScrollTop"
-                   ref="backdropRef"
-                   v-html="highlightConflicts(editContent)">
+            <div class="flex h-full w-full flex-1 overflow-hidden bg-bg-primary">
+              <!-- Line Numbers -->
+              <div class="shrink-0 w-12 bg-bg-tertiary border-r border-border-color text-right text-text-tertiary select-none overflow-hidden py-6 pr-2 font-mono text-[13px] leading-6"
+                   ref="lineNumbersRef"
+                   :scrollTop="lineNumbersScrollTop">
+                 <div v-for="i in (editContent ? editContent.split('\n').length : 1)" :key="i">{{ i }}</div>
               </div>
               
-              <!-- Textarea for editing -->
-              <!-- text-transparent/caret-white trick for overlay editing -->
-              <textarea v-model="editContent" 
-                        @scroll="handleScroll"
-                        class="absolute inset-0 w-full h-full bg-transparent text-transparent caret-text-primary p-6 font-mono text-[13px] leading-6 resize-none focus:outline-none z-10 break-all"
-                        spellcheck="false"></textarea>
+              <!-- Editor Container -->
+              <div class="relative flex-1 h-full overflow-hidden">
+                <!-- Backdrop for highlighting -->
+                <div class="absolute inset-0 pointer-events-none p-6 font-mono text-[13px] leading-6 whitespace-pre-wrap break-all overflow-hidden z-0"
+                     :scrollTop="backdropScrollTop"
+                     ref="backdropRef"
+                     v-html="highlightConflicts(editContent)">
+                </div>
+                
+                <!-- Textarea for editing -->
+                <!-- text-transparent/caret-white trick for overlay editing -->
+                <textarea v-model="editContent" 
+                          @scroll="handleScroll"
+                          class="absolute inset-0 w-full h-full bg-transparent text-transparent caret-text-primary p-6 font-mono text-[13px] leading-6 resize-none focus:outline-none z-10 break-all"
+                          spellcheck="false"></textarea>
+              </div>
             </div>
           </template>
         </div>
