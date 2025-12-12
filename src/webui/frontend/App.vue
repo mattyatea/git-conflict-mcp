@@ -28,9 +28,20 @@ const selectedItem = computed(() =>
 )
 
 // View mode state per item
-const viewModes = ref<Record<string, 'diff' | 'raw'>>({})
+const viewModes = ref<Record<string, 'diff' | 'raw' | 'edit'>>({})
+const editContent = ref('')
 
-const toggleView = (id: string, mode: 'diff' | 'raw') => {
+// Initialize edit content when item changes or mode changes
+watch([selectedId, () => viewModes.value[selectedId.value || '']], ([newId, newMode]) => {
+  if (newId && pendingResolves.value) {
+    const item = pendingResolves.value.find(p => p.id === newId)
+    if (item && newMode === 'edit') {
+      editContent.value = item.fileContent || ''
+    }
+  }
+})
+
+const toggleView = (id: string, mode: 'diff' | 'raw' | 'edit') => {
   viewModes.value[id] = mode
 }
 
@@ -342,8 +353,20 @@ onUnmounted(() => {
                     :class="getViewMode(selectedItem) === 'raw' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
               ファイル内容
             </button>
+            <button @click="toggleView(selectedItem.id, 'edit')"
+                    class="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                    :class="getViewMode(selectedItem) === 'edit' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
+              編集
+            </button>
           </div>
           
+          <div v-if="getViewMode(selectedItem) === 'edit'" class="flex gap-2">
+             <button @click="saveContent(selectedItem.id, editContent)" 
+                     :disabled="!!processing"
+                     class="px-3 py-1 rounded-md text-xs font-medium bg-accent-primary text-bg-primary hover:bg-white/90 transition-colors disabled:opacity-50">
+               保存
+             </button>
+          </div>          
           <div v-if="getViewMode(selectedItem) === 'diff' && selectedItem.gitDiff" class="flex gap-4 text-xs font-mono">
             <span class="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-primary border border-border-color text-accent-green">
               <strong>+{{ parseDiff(selectedItem.gitDiff!).stats.additions }}</strong>
@@ -386,6 +409,13 @@ onUnmounted(() => {
                    </div>
                 </template>
               </div>
+            </div>
+          </template>
+          <template v-else-if="getViewMode(selectedItem) === 'edit'">
+            <div class="h-full w-full flex flex-col">
+              <textarea v-model="editContent" 
+                        class="flex-1 w-full bg-bg-primary text-text-primary p-6 font-mono text-[13px] leading-6 resize-none focus:outline-none focus:bg-bg-subtle/20 transition-colors"
+                        spellcheck="false"></textarea>
             </div>
           </template>
           <template v-else>

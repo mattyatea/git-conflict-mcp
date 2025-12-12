@@ -221,6 +221,46 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         return;
     }
 
+    if (pathname.startsWith("/api/save/") && method === "POST") {
+        const id = pathname.replace("/api/save/", "");
+        const pending = pendingResolves.get(id);
+
+        if (!pending) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: false, error: "Not found" }));
+            return;
+        }
+
+        let body = "";
+        req.on("data", chunk => body += chunk);
+        req.on("end", async () => {
+            try {
+                const data = JSON.parse(body);
+                if (typeof data.content !== 'string') {
+                    res.writeHead(400, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({ success: false, error: "Invalid content" }));
+                    return;
+                }
+
+                // Update in-memory
+                pending.fileContent = data.content;
+
+                // Write to disk
+                await fs.writeFile(pending.absolutePath, data.content, "utf-8");
+
+                // Update git diff because content changed
+                pending.gitDiff = await getGitDiff(pending.filePath, pending.projectPath);
+
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ success: true }));
+            } catch (e: any) {
+                res.writeHead(500, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ success: false, error: e.message }));
+            }
+        });
+        return;
+    }
+
     // Static file serving logic for non-API routes
     if (!pathname.startsWith("/api/")) {
         // Resolve path logic is handled inside serveStatic
