@@ -1,17 +1,46 @@
 @import "tailwindcss";
 
 @theme {
-    --color-bg-primary: #0d1117;
-    --color-bg-secondary: #161b22;
-    --color-bg-tertiary: #21262d;
-    --color-border-color: #30363d;
-    --color-text-primary: #e6edf3;
-    --color-text-secondary: #8b949e;
-    --color-accent-green: #3fb950;
-    --color-accent-red: #f85149;
-    --color-accent-blue: #58a6ff;
-    --color-accent-yellow: #d29922;
+    /* Base - Clean Dark Mode */
+    --color-bg-primary: #0f0f10;
+    /* Main background */
+    --color-bg-secondary: #18181b;
+    /* Sidebar/Panels */
+    --color-bg-tertiary: #27272a;
+    /* Hovers/Inputs */
+    --color-bg-subtle: #27272a;
+    /* Subtle backgrounds */
 
-    --font-sans: Inter, sans-serif;
+    --color-border-color: #27272a;
+    /* Subtle borders */
+    --color-border-hover: #3f3f46;
+    /* Hover borders */
+
+    /* Typography */
+    --color-text-primary: #f4f4f5;
+    /* High contrast text */
+    --color-text-secondary: #a1a1aa;
+    /* Muted text */
+    --color-text-tertiary: #52525b;
+    /* Very muted text */
+
+    /* Accents - Refined & Functional */
+    --color-accent-primary: #f4f4f5;
+    /* Primary Action (White) */
+    --color-accent-blue: #3b82f6;
+    /* Info/Links */
+    --color-accent-green: #22c55e;
+    /* Success/Add */
+    --color-accent-red: #ef4444;
+    /* Destructive/Delete */
+    --color-accent-yellow: #eab308;
+    /* Warning/Modified */
+
+    /* Fonts */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }

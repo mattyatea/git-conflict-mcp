@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 
 interface PendingResolve {
   id: string;
@@ -13,6 +13,7 @@ interface PendingResolve {
 }
 
 const pendingResolves = ref<PendingResolve[]>([])
+const selectedId = ref<string | null>(null)
 const loading = ref(false)
 const processing = ref<string | null>(null)
 const toast = ref<{ message: string; type: 'success' | 'error'; show: boolean }>({
@@ -21,17 +22,36 @@ const toast = ref<{ message: string; type: 'success' | 'error'; show: boolean }>
   show: false
 })
 
+// Correctly computed selected item
+const selectedItem = computed(() => 
+  pendingResolves.value.find(p => p.id === selectedId.value) || null
+)
+
+// View mode state per item
+const viewModes = ref<Record<string, 'diff' | 'raw'>>({})
+
+const toggleView = (id: string, mode: 'diff' | 'raw') => {
+  viewModes.value[id] = mode
+}
+
+const getViewMode = (item: PendingResolve) => {
+  if (viewModes.value[item.id]) return viewModes.value[item.id]
+  return item.gitDiff ? 'diff' : 'raw'
+}
+
 const getTypeLabel = (type: string) => {
   switch(type) {
-    case 'resolve': return 'Resolve (git add)'
-    case 'delete': return 'Delete (git rm)'
-    case 'add': return 'Add (git add)'
+    case 'resolve': return '解決 (git add)'
+    case 'delete': return '削除 (git rm)'
+    case 'add': return '追加 (git add)'
     default: return type
   }
 }
 
 const formatTime = (timestamp: number) => {
-  return new Date(timestamp).toLocaleString('ja-JP')
+  return new Date(timestamp).toLocaleString('ja-JP', { 
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+  })
 }
 
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -46,6 +66,15 @@ const loadPending = async () => {
     const res = await fetch('/api/pending')
     const data = await res.json()
     pendingResolves.value = data
+    
+    // Auto-select first item if nothing selected and data exists
+    if (!selectedId.value && data.length > 0) {
+      selectedId.value = data[0].id
+    }
+    // If selected item no longer exists, select first available
+    if (selectedId.value && !data.find((p: PendingResolve) => p.id === selectedId.value)) {
+      selectedId.value = data.length > 0 ? data[0].id : null
+    }
   } catch (e) {
     console.error('Failed to load pending:', e)
   }
@@ -58,7 +87,7 @@ const approveResolve = async (id: string) => {
     const data = await res.json()
     
     if (data.success) {
-      showToast('解決を実行しました: ' + data.message)
+      showToast('承認しました: ' + data.message)
       await loadPending()
     } else {
       showToast('エラー: ' + data.error, 'error')
@@ -89,29 +118,17 @@ const rejectResolve = async (id: string) => {
   }
 }
 
-// View mode state per item
-const viewModes = ref<Record<string, 'diff' | 'raw'>>({})
-
-const toggleView = (id: string, mode: 'diff' | 'raw') => {
-  viewModes.value[id] = mode
-}
-
-const getViewMode = (item: PendingResolve) => {
-  if (viewModes.value[item.id]) return viewModes.value[item.id]
-  return item.gitDiff ? 'diff' : 'raw'
-}
-
 // Conflict highlighting
 const highlightConflicts = (content?: string) => {
-  if (!content) return '<span class="text-text-secondary">（ファイルが存在しないか読み取れません）</span>'
+  if (!content) return '<span class="text-text-tertiary italic">表示できる内容がありません</span>'
   
   return content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/^(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*$)/gm, '<span class="text-accent-yellow font-bold">$1</span>')
-    .replace(/^(=======)$/gm, '<span class="text-accent-yellow font-bold">$1</span>')
-    .replace(/^(&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*$)/gm, '<span class="text-accent-yellow font-bold">$1</span>')
+    .replace(/^(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold w-full block">$1</span>')
+    .replace(/^(=======)$/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold w-full block">$1</span>')
+    .replace(/^(&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold w-full block">$1</span>')
 }
 
 // Diff parsing
@@ -183,163 +200,209 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-bg-primary text-text-primary font-sans">
-    <header class="sticky top-0 z-50 bg-bg-secondary border-b border-border-color backdrop-blur-md bg-opacity-90 px-8 py-6">
-      <div class="max-w-[1400px] mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-green to-[#2ea043] flex items-center justify-center text-xl">
-            🔀
+  <div class="flex h-screen w-screen overflow-hidden bg-bg-primary text-text-primary font-sans">
+    <!-- Sidebar: List of Conflicts -->
+    <aside class="w-80 min-w-[320px] flex flex-col border-r border-border-color bg-bg-secondary">
+      <header class="h-16 flex items-center justify-between px-5 border-b border-border-color bg-bg-secondary sticky top-0 z-10">
+        <div class="flex items-center gap-2.5">
+          <div class="w-6 h-6 rounded bg-accent-primary text-bg-primary flex items-center justify-center font-bold text-xs">
+            GC
           </div>
-          <h1 class="text-2xl font-semibold bg-clip-text text-transparent bg-gradient-to-br from-text-primary to-accent-blue">
-            Conflict Resolution
-          </h1>
+          <h1 class="font-medium text-sm tracking-tight text-text-primary">解決待ち一覧</h1>
         </div>
-        <div class="flex items-center gap-4">
-          <button @click="loadPending" class="flex items-center gap-2 px-4 py-2 bg-bg-tertiary border border-border-color rounded-lg text-sm hover:bg-border-color transition-colors">
-            🔄 更新
-          </button>
-          <div class="flex items-center gap-2 px-4 py-2 bg-bg-tertiary rounded-full text-sm text-text-secondary">
-            <span class="w-2 h-2 rounded-full bg-accent-green animate-pulse"></span>
-            <span>{{ pendingResolves.length }}</span> 件の確認待ち
-          </div>
+        <div class="px-2 py-0.5 rounded-full bg-bg-tertiary border border-border-color text-xs font-mono text-text-secondary">
+          {{ pendingResolves.length }}
         </div>
-      </div>
-    </header>
+      </header>
 
-    <main class="max-w-[1400px] mx-auto p-8">
-      <div v-if="pendingResolves.length === 0" class="text-center py-24 text-text-secondary">
-        <div class="text-6xl mb-6 opacity-50">✅</div>
-        <h2 class="text-2xl font-medium mb-2 text-text-primary">確認待ちの解決はありません</h2>
-        <p>新しい解決リクエストが来ると、ここに表示されます</p>
-      </div>
-
-      <div v-else>
-        <h2 class="text-lg font-semibold mb-6 text-text-secondary">確認待ちの解決リクエスト</h2>
-        <div class="flex flex-col gap-6">
-          <div v-for="item in pendingResolves" :key="item.id" 
-               class="bg-bg-secondary border border-border-color rounded-2xl overflow-hidden shadow-lg hover:-translate-y-0.5 hover:shadow-2xl transition-all duration-200"
-               :class="{ 'opacity-50 pointer-events-none': processing === item.id }">
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1 custom-scrollbar">
+        <template v-if="pendingResolves.length > 0">
+          <button 
+            v-for="item in pendingResolves" 
+            :key="item.id"
+            @click="selectedId = item.id"
+            class="w-full text-left px-3 py-3 rounded-lg border text-sm transition-all duration-200 group relative overflow-hidden"
+            :class="selectedId === item.id 
+              ? 'bg-bg-tertiary border-border-hover shadow-sm' 
+              : 'bg-transparent border-transparent hover:bg-bg-subtle text-text-secondary hover:text-text-primary'"
+          >
+            <div class="flex items-start justify-between gap-2 mb-1">
+               <div class="font-medium truncate leading-tight" :title="item.filePath">
+                 {{ item.filePath.split('/').pop() }}
+               </div>
+               <span class="shrink-0 text-[10px] font-mono opacity-50">{{ formatTime(item.timestamp).split(' ')[1] }}</span>
+            </div>
             
-            <div class="flex items-center justify-between px-6 py-5 bg-bg-tertiary border-b border-border-color">
-              <div class="flex items-center gap-4">
-                <div class="w-[42px] h-[42px] rounded-xl bg-accent-blue/15 flex items-center justify-center text-xl">
-                  📄
-                </div>
-                <div>
-                  <h3 class="text-base font-semibold font-mono text-accent-blue">{{ item.filePath }}</h3>
-                  <div class="text-xs text-text-secondary mt-1">{{ item.projectPath }}</div>
-                </div>
-              </div>
-              <span class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide"
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] truncate opacity-60 max-w-[70%]" :title="item.projectPath">
+                {{ item.projectPath }}
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded border capitalize font-medium"
                     :class="{
-                      'bg-accent-green/15 text-accent-green': item.type === 'resolve',
-                      'bg-accent-red/15 text-accent-red': item.type === 'delete',
-                      'bg-accent-blue/15 text-accent-blue': item.type === 'add'
+                      'bg-accent-green/10 border-accent-green/20 text-accent-green': item.type === 'resolve',
+                      'bg-accent-red/10 border-accent-red/20 text-accent-red': item.type === 'delete',
+                      'bg-accent-blue/10 border-accent-blue/20 text-accent-blue': item.type === 'add'
                     }">
                 {{ getTypeLabel(item.type) }}
               </span>
             </div>
+          </button>
+        </template>
+        <div v-else class="flex flex-col items-center justify-center h-48 text-text-tertiary gap-2">
+          <span>すべて完了</span>
+          <span class="text-2xl opacity-20">✨</span>
+        </div>
+      </div>
+      
+      <div class="p-3 border-t border-border-color bg-bg-secondary">
+        <button @click="loadPending" class="w-full flex items-center justify-center gap-2 py-1.5 rounded-md border border-border-color text-xs text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
+          更新
+        </button>
+      </div>
+    </aside>
 
-            <div class="p-6">
-              <div class="flex gap-2 mb-4">
-                <button @click="toggleView(item.id, 'diff')"
-                        class="px-4 py-2 rounded-md text-xs border transition-colors duration-200"
-                        :class="getViewMode(item) === 'diff' 
-                          ? 'bg-accent-blue border-accent-blue text-white' 
-                          : 'bg-bg-tertiary border-border-color text-text-secondary hover:bg-border-color'">
-                  📊 差分表示
-                </button>
-                <button @click="toggleView(item.id, 'raw')"
-                        class="px-4 py-2 rounded-md text-xs border transition-colors duration-200"
-                        :class="getViewMode(item) === 'raw'
-                          ? 'bg-accent-blue border-accent-blue text-white'
-                          : 'bg-bg-tertiary border-border-color text-text-secondary hover:bg-border-color'">
-                  📄 ファイル内容
-                </button>
-              </div>
+    <!-- Main Content: Detail View -->
+    <main class="flex-1 flex flex-col min-w-0 bg-bg-primary relative">
+      <div v-if="selectedItem" class="flex flex-col h-full">
+        <!-- Detail Header -->
+        <header class="h-16 flex items-center justify-between px-6 border-b border-border-color bg-bg-primary shrink-0">
+           <div class="flex items-center gap-4 overflow-hidden">
+             <div class="p-2 rounded bg-bg-tertiary border border-border-color text-xl">
+               📄
+             </div>
+             <div class="min-w-0">
+               <div class="text-[10px] text-text-tertiary font-mono uppercase tracking-wider mb-0.5">
+                 {{ getTypeLabel(selectedItem.type) }} リクエスト
+               </div>
+               <div class="text-base font-medium truncate font-mono text-text-primary select-all" :title="selectedItem.filePath">
+                 {{ selectedItem.filePath }}
+               </div>
+             </div>
+           </div>
 
-              <div class="bg-bg-primary border border-border-color rounded-xl overflow-auto max-h-[500px] font-mono text-[13px] leading-relaxed">
-                <template v-if="getViewMode(item) === 'diff' && item.gitDiff">
-                  <div class="w-full">
-                    <div class="flex gap-4 px-4 py-3 bg-bg-tertiary border-b border-border-color text-sm sticky top-0">
-                      <span class="text-accent-green">+{{ parseDiff(item.gitDiff!).stats.additions }} 追加</span>
-                      <span class="text-accent-red">-{{ parseDiff(item.gitDiff!).stats.deletions }} 削除</span>
-                    </div>
-                    <div v-for="(line, idx) in parseDiff(item.gitDiff!).lines" :key="idx"
-                         class="flex min-h-[1.75em]"
-                         :class="{
-                           'bg-[#2ea04333]': line.type === 'addition',
-                           'bg-[#f8514933]': line.type === 'deletion',
-                           'bg-accent-blue/10 text-accent-blue font-medium': line.type === 'header',
-                           'bg-[#8e57ff33] text-[#a371f7]': line.type === 'hunk'
-                         }">
-                      <span class="w-[50px] min-w-[50px] px-2 text-right text-text-secondary bg-bg-secondary border-r border-border-color text-xs flex items-center justify-end select-none"
-                            :class="{
-                              'bg-[#2ea0434d] text-accent-green': line.type === 'addition',
-                              'bg-[#f851494d] text-accent-red': line.type === 'deletion',
-                              'bg-accent-blue/15': line.type === 'header',
-                              'bg-[#8e57ff33]': line.type === 'hunk'
-                            }">
-                        {{ line.displayLineNum }}
-                      </span>
-                      <span class="flex-1 px-3 whitespace-pre-wrap break-all py-0.5">
-                        <span v-if="line.type === 'addition'" class="text-accent-green font-bold mr-2 select-none">+</span>
-                        <span v-else-if="line.type === 'deletion'" class="text-accent-red font-bold mr-2 select-none">-</span>
-                        <span v-else-if="line.type === 'context'" class="mr-2 select-none"> </span>
-                        <span>{{ line.type === 'addition' || line.type === 'deletion' ? line.content.substring(1) : line.content }}</span>
-                      </span>
-                    </div>
+           <div class="flex items-center gap-2 shrink-0">
+             <button @click="rejectResolve(selectedItem.id)" 
+                     :disabled="!!processing"
+                     class="px-4 py-2 rounded-md text-sm font-medium text-accent-red hover:bg-accent-red/10 border border-transparent hover:border-accent-red/20 transition-colors disabled:opacity-50">
+               拒否
+             </button>
+             <button @click="approveResolve(selectedItem.id)" 
+                     :disabled="!!processing"
+                     class="px-5 py-2 rounded-md text-sm font-medium bg-text-primary text-bg-primary hover:bg-white/90 border border-transparent shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2">
+               <span v-if="processing === selectedItem.id" class="animate-spin text-xs">⌛</span>
+               解決を承認
+             </button>
+           </div>
+        </header>
+
+        <!-- View Controls & Diff Stats -->
+        <div class="px-6 py-3 border-b border-border-color flex items-center justify-between bg-bg-subtle shrink-0">
+          <div class="flex items-center p-1 bg-bg-primary border border-border-color rounded-lg">
+            <button @click="toggleView(selectedItem.id, 'diff')"
+                    class="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                    :class="getViewMode(selectedItem) === 'diff' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
+              差分表示
+            </button>
+            <button @click="toggleView(selectedItem.id, 'raw')"
+                    class="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                    :class="getViewMode(selectedItem) === 'raw' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
+              ファイル内容
+            </button>
+          </div>
+          
+          <div v-if="getViewMode(selectedItem) === 'diff' && selectedItem.gitDiff" class="flex gap-4 text-xs font-mono">
+            <span class="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-primary border border-border-color text-accent-green">
+              <strong>+{{ parseDiff(selectedItem.gitDiff!).stats.additions }}</strong>
+            </span>
+            <span class="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-primary border border-border-color text-accent-red">
+              <strong>-{{ parseDiff(selectedItem.gitDiff!).stats.deletions }}</strong>
+            </span>
+          </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-auto custom-scrollbar font-mono text-[13px] leading-6 bg-bg-primary">
+          <template v-if="getViewMode(selectedItem) === 'diff' && selectedItem.gitDiff">
+            <div class="w-full">
+              <div v-for="(line, idx) in parseDiff(selectedItem.gitDiff!).lines" :key="idx"
+                   class="flex min-h-[1.5em] group/line"
+                   :class="{
+                     'bg-accent-green/10': line.type === 'addition',
+                     'bg-accent-red/10': line.type === 'deletion',
+                     'bg-bg-tertiary text-text-secondary border-y border-border-color/50 py-2': line.type === 'hunk',
+                     'bg-bg-tertiary border-b border-border-color py-1': line.type === 'header'
+                   }">
+                <template v-if="line.type !== 'header' && line.type !== 'hunk'">
+                  <div class="w-[50px] shrink-0 text-right px-3 text-text-tertiary/50 select-none border-r border-border-color/30 group-hover/line:text-text-tertiary text-xs bg-bg-subtle/30">
+                     {{ line.displayLineNum }}
+                  </div>
+                  <div class="flex-1 px-4 whitespace-pre-wrap break-all relative">
+                    <span v-if="line.type === 'addition'" class="absolute left-1.5 text-accent-green opacity-50">+</span>
+                    <span v-else-if="line.type === 'deletion'" class="absolute left-1.5 text-accent-red opacity-50">-</span>
+                    <span :class="{
+                      'text-accent-green': line.type === 'addition',
+                      'text-accent-red': line.type === 'deletion',
+                      'text-text-tertiary': line.type === 'context'
+                    }">{{ line.type === 'addition' || line.type === 'deletion' ? line.content.substring(1) : line.content }}</span>
                   </div>
                 </template>
                 <template v-else>
-                  <div class="p-4 whitespace-pre-wrap break-all" v-html="highlightConflicts(item.fileContent)"></div>
+                   <div class="w-full px-4 text-xs opacity-70">
+                     {{ line.content }}
+                   </div>
                 </template>
               </div>
-              
-              <div class="text-xs text-text-secondary mt-2">
-                リクエスト時刻: {{ formatTime(item.timestamp) }}
-              </div>
             </div>
-
-            <div class="flex gap-4 px-6 py-5 bg-bg-tertiary border-t border-border-color">
-              <button @click="rejectResolve(item.id)" :disabled="!!processing"
-                      class="flex-1 py-3.5 rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-200 border bg-bg-primary text-accent-red border-accent-red hover:bg-accent-red/10 disabled:opacity-50 disabled:cursor-not-allowed">
-                ❌ 拒否
-              </button>
-              <button @click="approveResolve(item.id)" :disabled="!!processing"
-                      class="flex-1 py-3.5 rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-200 text-white bg-gradient-to-br from-accent-green to-[#2ea043] hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(63,185,80,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none">
-                ✅ 解決を実行
-              </button>
-            </div>
-          </div>
+          </template>
+          <template v-else>
+            <div class="p-8 whitespace-pre-wrap break-all text-text-secondary" v-html="highlightConflicts(selectedItem.fileContent)"></div>
+          </template>
         </div>
       </div>
-    </main>
 
-    <div class="fixed bottom-8 right-8 px-6 py-4 rounded-xl font-medium shadow-2xl transition-all duration-300 transform z-[1000]"
-         :class="[
-           toast.show ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0',
-           toast.type === 'success' ? 'bg-accent-green text-white' : 'bg-accent-red text-white'
-         ]">
-      {{ toast.message }}
-    </div>
+      <div v-else class="flex flex-col items-center justify-center h-full text-text-tertiary">
+        <div class="w-16 h-16 rounded-xl bg-bg-secondary flex items-center justify-center text-3xl mb-4 border border-border-color">
+          ←
+        </div>
+        <p class="font-medium text-text-secondary">確認するコンフリクトを選択してください</p>
+        <p class="text-sm mt-2 opacity-60">保留中の解決リクエストがサイドバーに表示されます</p>
+      </div>
+
+      <!-- Toast -->
+      <Transition 
+        enter-active-class="transform ease-out duration-300 transition" 
+        enter-from-class="translate-y-2 opacity-0 scale-95" 
+        enter-to-class="translate-y-0 opacity-100 scale-100" 
+        leave-active-class="transition ease-in duration-200" 
+        leave-from-class="opacity-100 scale-100" 
+        leave-to-class="opacity-0 scale-95"
+      >
+        <div v-if="toast.show" 
+             class="absolute bottom-6 right-6 px-4 py-3 rounded-lg shadow-md border text-sm font-medium flex items-center gap-3 z-50 bg-bg-secondary"
+             :class="toast.type === 'success' ? 'border-accent-green/30 text-accent-green' : 'border-accent-red/30 text-accent-red'">
+          <span class="text-lg">{{ toast.type === 'success' ? '✓' : '✕' }}</span>
+          {{ toast.message }}
+        </div>
+      </Transition>
+    </main>
   </div>
 </template>
 
 <style>
-/* Global scrollbar styling if needed, though Tailwind hides most of it */
-::-webkit-scrollbar {
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
-::-webkit-scrollbar-track {
-  background: var(--color-bg-primary);
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
-::-webkit-scrollbar-thumb {
-  background: var(--color-border-color);
-  border-radius: 5px;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-bg-tertiary);
+  border: 3px solid var(--color-bg-primary); /* Padding effect */
+  border-radius: 99px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-secondary);
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
 }
 </style>
