@@ -48,11 +48,48 @@ watch([selectedId, () => viewModes.value[selectedId.value || '']], ([newId, newM
 })
 
 const showOpenMenu = ref(false)
+const showSettings = ref(false)
+type EditorType = 'webstorm' | 'vscode' | 'cursor' | 'antigravity'
+const preferredEditor = ref<EditorType | null>(null)
 
-const openInEditor = (editor: 'webstorm' | 'vscode' | 'cursor' | 'antigravity') => {
+const editors: { id: EditorType; label: string }[] = [
+  { id: 'webstorm', label: 'WebStorm' },
+  { id: 'vscode', label: 'VS Code' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'antigravity', label: 'AntiGravity' }
+]
+
+const loadSettings = () => {
+  const saved = localStorage.getItem('gc-preferred-editor')
+  if (saved && editors.some(e => e.id === saved)) {
+    preferredEditor.value = saved as EditorType
+  }
+}
+
+const saveSettings = (editor: EditorType) => {
+  preferredEditor.value = editor
+  localStorage.setItem('gc-preferred-editor', editor)
+  showOpenMenu.value = false // Close menu if open
+}
+
+const openInEditor = (inputEditor?: EditorType) => {
   if (!selectedItem.value) return
+  
+  // Use input editor, or preferred editor, or fallback to menu
+  const editor = inputEditor || preferredEditor.value
+  
+  if (!editor) {
+    showOpenMenu.value = true
+    return
+  }
+  
   showOpenMenu.value = false
   
+  // If we are opening via specific selection (inputEditor), save it as preferred
+  if (inputEditor) {
+    saveSettings(inputEditor)
+  }
+
   const path = selectedItem.value.absolutePath
   let url = ''
 
@@ -67,7 +104,7 @@ const openInEditor = (editor: 'webstorm' | 'vscode' | 'cursor' | 'antigravity') 
       url = `cursor://file/${path}`
       break
     case 'antigravity':
-      url = `antigravity://file/${path}`
+      url = `windsurf://file/${path}`
       break
   }
   
@@ -231,6 +268,24 @@ const saveContent = async (id: string, content: string) => {
   }
 }
 
+// Helpers for Diff View Editing
+const getLineContent = (lineNum?: number) => {
+  if (!lineNum) return ''
+  const lines = editContent.value.split('\n')
+  return lines[lineNum - 1] || ''
+}
+
+const updateLineContent = (lineNum: number | undefined, text: string) => {
+  if (!lineNum) return
+  const lines = editContent.value.split('\n')
+  // Ensure line exists (handle edge case where file is shorter than diff expects)
+  if (lineNum >= 1 && lineNum <= lines.length + 1) {
+    // If appending (rare case in this simplified view), handle splice
+    lines[lineNum - 1] = text
+    editContent.value = lines.join('\n')
+  }
+}
+
 // Diff parsing
 interface DiffLine {
   type: 'header' | 'hunk' | 'addition' | 'deletion' | 'context';
@@ -324,6 +379,7 @@ const parseDiff = (diffText: string): { stats: { additions: number, deletions: n
 let interval: NodeJS.Timeout
 
 onMounted(() => {
+  loadSettings()
   loadPending()
   interval = setInterval(loadPending, 5000)
 })
@@ -388,8 +444,13 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <div class="p-3 border-t border-border-color bg-bg-secondary">
-        <button @click="loadPending" class="w-full flex items-center justify-center gap-2 py-1.5 rounded-md border border-border-color text-xs text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
+      <div class="p-3 border-t border-border-color bg-bg-secondary flex gap-2">
+        <button @click="showSettings = true" 
+                class="w-10 flex items-center justify-center py-1.5 rounded-md border border-border-color text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                title="設定">
+          ⚙
+        </button>
+        <button @click="loadPending" class="flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md border border-border-color text-xs text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
           更新
         </button>
       </div>
@@ -416,13 +477,26 @@ onUnmounted(() => {
 
            <div class="flex items-center gap-2 shrink-0">
              <!-- Open in IDE -->
-             <div class="relative">
-               <button @click="showOpenMenu = !showOpenMenu"
-                       title="エディタで開く"
-                       class="px-3 py-2 rounded-md text-sm font-medium text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors flex items-center gap-1.5 border border-transparent hover:border-border-color">
-                 <span class="text-xs">↗</span>
-                 <span>IDE</span>
-               </button>
+             <div class="relative group">
+               <div class="flex items-center rounded-md border border-transparent hover:border-border-color overflow-hidden transition-colors"
+                    :class="preferredEditor ? 'bg-bg-tertiary border-border-color' : ''">
+                 
+                 <!-- Main Button -->
+                 <button @click="openInEditor()"
+                         :title="preferredEditor ? `${editors.find(e => e.id === preferredEditor)?.label}で開く` : 'エディタで開く'"
+                         class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-colors"
+                         :class="!preferredEditor ? 'hover:bg-bg-tertiary rounded-md' : 'pr-2'">
+                   <span class="text-xs">↗</span>
+                   <span>{{ preferredEditor ? editors.find(e => e.id === preferredEditor)?.label : 'IDE' }}</span>
+                 </button>
+
+                 <!-- Dropdown Trigger (only visible if preferred editor is set) -->
+                 <button v-if="preferredEditor"
+                         @click="showOpenMenu = !showOpenMenu"
+                         class="px-1.5 py-2 border-l border-border-color/50 text-text-secondary hover:text-text-primary hover:bg-black/5 active:bg-black/10 transition-colors">
+                   <span class="text-[10px]">▼</span>
+                 </button>
+               </div>
                
                <!-- Backdrop -->
                <div v-if="showOpenMenu" class="fixed inset-0 z-[55]" @click="showOpenMenu = false"></div>
@@ -430,18 +504,20 @@ onUnmounted(() => {
                <!-- Dropdown -->
                <div v-if="showOpenMenu" 
                     @click="showOpenMenu = false"
-                    class="absolute right-0 top-full mt-2 w-40 bg-bg-primary border border-border-color rounded-lg shadow-xl py-1 z-[60] overflow-hidden">
-                 <button @click="openInEditor('webstorm')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
-                   WebStorm
+                    class="absolute right-0 top-full mt-2 w-48 bg-bg-primary border border-border-color rounded-lg shadow-xl py-1 z-[60] overflow-hidden">
+                 <div class="px-3 py-2 text-[10px] uppercase font-bold text-text-tertiary tracking-wider border-b border-border-color mb-1">
+                   エディタを選択
+                 </div>
+                 <button v-for="editor in editors" 
+                         :key="editor.id"
+                         @click="openInEditor(editor.id)" 
+                         class="w-full text-left px-4 py-2 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors flex items-center justify-between group/item">
+                   <span>{{ editor.label }}で開く</span>
+                   <span v-if="preferredEditor === editor.id" class="text-accent-primary">✓</span>
                  </button>
-                 <button @click="openInEditor('vscode')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
-                   VS Code
-                 </button>
-                 <button @click="openInEditor('cursor')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
-                   Cursor
-                 </button>
-                 <button @click="openInEditor('antigravity')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
-                   AntiGravity
+                 <div class="h-px bg-border-color my-1"></div>
+                 <button @click="showSettings = true" class="w-full text-left px-4 py-2 text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
+                   設定...
                  </button>
                </div>
              </div>
@@ -495,9 +571,9 @@ onUnmounted(() => {
         <!-- Content Area -->
         <div class="flex-1 overflow-auto custom-scrollbar font-mono text-[13px] leading-6 bg-bg-primary">
           <template v-if="getViewMode(selectedItem) === 'diff' && selectedItem.gitDiff">
-            <div class="w-full">
+            <div class="w-full pb-10">
               <div v-for="(line, idx) in parseDiff(selectedItem.gitDiff!).lines" :key="idx"
-                   class="flex min-h-[1.5em] group/line"
+                   class="flex min-h-[1.5em] group/line hover:bg-bg-tertiary/30"
                    :class="{
                      'bg-accent-green/10': line.type === 'addition',
                      'bg-accent-red/10': line.type === 'deletion',
@@ -505,17 +581,31 @@ onUnmounted(() => {
                      'bg-bg-tertiary border-b border-border-color py-1': line.type === 'header'
                    }">
                 <template v-if="line.type !== 'header' && line.type !== 'hunk'">
-                  <div class="w-[50px] shrink-0 text-right px-3 text-text-tertiary/50 select-none border-r border-border-color/30 group-hover/line:text-text-tertiary text-xs bg-bg-subtle/30">
+                  <div class="w-[50px] shrink-0 text-right px-3 text-text-tertiary/50 select-none border-r border-border-color/30 group-hover/line:text-text-tertiary text-xs bg-bg-subtle/30 leading-[1.6]">
                      {{ line.displayLineNum }}
                   </div>
-                  <div class="flex-1 px-4 whitespace-pre-wrap break-all relative">
-                    <span v-if="line.type === 'addition'" class="absolute left-1.5 text-accent-green opacity-50">+</span>
-                    <span v-else-if="line.type === 'deletion'" class="absolute left-1.5 text-accent-red opacity-50">-</span>
-                    <span :class="{
-                      'text-accent-green': line.type === 'addition',
-                      'text-accent-red': line.type === 'deletion',
-                      'text-text-tertiary': line.type === 'context'
-                    }">{{ line.content }}</span>
+                  <div class="flex-1 px-4 whitespace-pre-wrap break-all relative flex items-center">
+                    <span v-if="line.type === 'addition'" class="absolute left-1.5 text-accent-green opacity-50 select-none">+</span>
+                    <span v-else-if="line.type === 'deletion'" class="absolute left-1.5 text-accent-red opacity-50 select-none">-</span>
+                    
+                    <!-- Editable Content for Context and Addition -->
+                    <template v-if="line.type !== 'deletion'">
+                      <input
+                        type="text"
+                        :value="getLineContent(line.lineNum)"
+                        @input="(e) => updateLineContent(line.lineNum, (e.target as HTMLInputElement).value)"
+                        class="w-full bg-transparent border-none outline-none font-mono text-[13px] p-0 m-0 leading-[1.6] text-inherit focus:ring-0"
+                        :class="{
+                          'text-accent-green': line.type === 'addition',
+                          'text-text-tertiary': line.type === 'context',
+                          'text-text-primary': line.type === 'context' // Override tertiary on focus? No, context is code.
+                        }"
+                        spellcheck="false"
+                      />
+                    </template>
+                    
+                    <!-- Read-only Content for Deletion -->
+                    <span v-else class="text-accent-red">{{ line.content }}</span>
                   </div>
                 </template>
                 <template v-else>
@@ -570,6 +660,53 @@ onUnmounted(() => {
           {{ toast.message }}
         </div>
       </Transition>
+
+      <!-- Settings Modal -->
+      <div v-if="showSettings" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showSettings = false"></div>
+        <div class="bg-bg-secondary w-full max-w-sm rounded-xl border border-border-color shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+          <header class="px-5 py-4 border-b border-border-color flex items-center justify-between bg-bg-secondary">
+            <h2 class="font-medium text-text-primary">設定</h2>
+            <button @click="showSettings = false" class="text-text-tertiary hover:text-text-primary transition-colors">
+              ✕
+            </button>
+          </header>
+          
+          <div class="p-5 overflow-y-auto">
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 block">デフォルトエディタ</label>
+                <div class="space-y-1">
+                  <label v-for="editor in editors" 
+                         :key="editor.id"
+                         class="flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all"
+                         :class="preferredEditor === editor.id 
+                           ? 'bg-accent-primary/5 border-accent-primary text-accent-primary shadow-sm' 
+                           : 'bg-bg-primary border-transparent hover:bg-bg-tertiary text-text-secondary hover:text-text-primary'">
+                    <span class="text-sm font-medium">{{ editor.label }}</span>
+                    <input type="radio" 
+                           name="editor" 
+                           :value="editor.id" 
+                           :checked="preferredEditor === editor.id"
+                           @change="saveSettings(editor.id)"
+                           class="accent-accent-primary w-4 h-4">
+                  </label>
+                </div>
+                <p class="text-[11px] text-text-tertiary mt-2 leading-relaxed">
+                  ファイルを開く際に使用するエディタを選択します。<br>
+                  これはブラウザのローカルストレージに保存されます。
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-4 bg-bg-tertiary border-t border-border-color flex justify-end">
+            <button @click="showSettings = false" class="px-4 py-2 bg-text-primary text-bg-primary rounded-lg text-sm font-medium hover:bg-white/90 transition-colors">
+              完了
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
