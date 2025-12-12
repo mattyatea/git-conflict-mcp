@@ -221,29 +221,30 @@ const highlightConflicts = (content?: string) => {
   // We match the standard git conflict markers and their content
   // <<<<<<< HEAD ... ======= ... >>>>>>> ...
   // Using negative margins (-mx-6) to extend background to edges while keeping text aligned (px-6)
-  // matching the parent p-6 padding
+  // matching the parent p-6 padding.
+  // CRITICAL: We normally avoid padding/borders that affect height to ensure alignment with the overlay textarea.
+  // We use box-shadow for borders to avoid layout shifts.
   const fullWidthClass = "block w-[calc(100%+3rem)] -mx-6 px-6 box-border relative";
   
   return escaped.replace(
     /(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*?$)([\s\S]*?)(^=======.*?$)([\s\S]*?)(^&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*?$)/gm,
     (match, start, ours, mid, theirs, end) => {
       // Styles for Ours (Current) - Blue theme
-      // Added labels via data attributes or relative positioning would be safer, 
-      // but here we simply append a label span that is absolutely positioned.
-      const oursMarkerStyle = `${fullWidthClass} text-accent-blue font-bold opacity-75 bg-accent-blue/20 border-t border-accent-blue/30 pt-1`;
+      // shadow-[inset_0_1px_0_0_#3b82f64d] simulates border-top with 30% opacity blue
+      const oursMarkerStyle = `${fullWidthClass} text-accent-blue font-bold opacity-75 bg-accent-blue/20 shadow-[inset_0_1px_0_0_rgba(59,130,246,0.3)]`;
       const oursContentStyle = `${fullWidthClass} text-text-primary bg-accent-blue/10`; 
-      const oursLabel = `<span class="absolute right-6 top-1 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider">Current (HEAD)</span>`;
+      const oursLabel = `<span class="absolute right-6 top-0 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider leading-6">Current (HEAD)</span>`;
       
       // Styles for Theirs (Incoming) - Green theme
-      const theirsMarkerStyle = `${fullWidthClass} text-accent-green font-bold opacity-75 bg-accent-green/20 border-b border-accent-green/30 pb-1`;
+      // shadow-[inset_0_-1px_0_0_#22c55e4d] simulates border-bottom
+      const theirsMarkerStyle = `${fullWidthClass} text-accent-green font-bold opacity-75 bg-accent-green/20 shadow-[inset_0_-1px_0_0_rgba(34,197,94,0.3)]`;
       const theirsContentStyle = `${fullWidthClass} text-text-primary bg-accent-green/10`;
-      const theirsLabel = `<span class="absolute right-6 top-0.5 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider">Incoming</span>`;
+      const theirsLabel = `<span class="absolute right-6 top-0 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider leading-6">Incoming</span>`;
 
       // Middle separator style
-      const midStyle = `${fullWidthClass} text-text-tertiary font-bold opacity-50 bg-bg-tertiary border-y border-border-color my-0.5`;
+      // shadow for border-y
+      const midStyle = `${fullWidthClass} text-text-tertiary font-bold opacity-50 bg-bg-tertiary shadow-[inset_0_1px_0_0_rgba(39,39,42,1),inset_0_-1px_0_0_rgba(39,39,42,1)]`;
 
-      // We wrap the raw text "start" in a span to keep it selectable/visible as code, 
-      // but the div provides the background.
       return `<div class="${oursMarkerStyle}">${start}${oursLabel}</div>` +
              `<div class="${oursContentStyle}">${ours}</div>` +
              `<div class="${midStyle}">${mid}</div>` +
