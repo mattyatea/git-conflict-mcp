@@ -220,25 +220,35 @@ const highlightConflicts = (content?: string) => {
   // Enhanced highlighting for Git conflicts
   // We match the standard git conflict markers and their content
   // <<<<<<< HEAD ... ======= ... >>>>>>> ...
+  // Using negative margins (-mx-6) to extend background to edges while keeping text aligned (px-6)
+  // matching the parent p-6 padding
+  const fullWidthClass = "block w-[calc(100%+3rem)] -mx-6 px-6 box-border relative";
+  
   return escaped.replace(
     /(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*?$)([\s\S]*?)(^=======.*?$)([\s\S]*?)(^&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*?$)/gm,
     (match, start, ours, mid, theirs, end) => {
       // Styles for Ours (Current) - Blue theme
-      const oursMarkerStyle = "text-accent-blue font-bold opacity-75 w-full inline-block bg-accent-blue/10 border-t border-accent-blue/20";
-      const oursContentStyle = "text-text-primary bg-accent-blue/5 w-full inline-block"; // Block to ensure background covers full width
+      // Added labels via data attributes or relative positioning would be safer, 
+      // but here we simply append a label span that is absolutely positioned.
+      const oursMarkerStyle = `${fullWidthClass} text-accent-blue font-bold opacity-75 bg-accent-blue/20 border-t border-accent-blue/30 pt-1`;
+      const oursContentStyle = `${fullWidthClass} text-text-primary bg-accent-blue/10`; 
+      const oursLabel = `<span class="absolute right-6 top-1 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider">Current (HEAD)</span>`;
       
       // Styles for Theirs (Incoming) - Green theme
-      const theirsMarkerStyle = "text-accent-green font-bold opacity-75 w-full inline-block bg-accent-green/10 border-b border-accent-green/20";
-      const theirsContentStyle = "text-text-primary bg-accent-green/5 w-full inline-block";
+      const theirsMarkerStyle = `${fullWidthClass} text-accent-green font-bold opacity-75 bg-accent-green/20 border-b border-accent-green/30 pb-1`;
+      const theirsContentStyle = `${fullWidthClass} text-text-primary bg-accent-green/10`;
+      const theirsLabel = `<span class="absolute right-6 top-0.5 text-[10px] font-normal opacity-70 pointer-events-none uppercase tracking-wider">Incoming</span>`;
 
       // Middle separator style
-      const midStyle = "text-text-tertiary font-bold opacity-50 w-full inline-block bg-bg-tertiary border-y border-border-color";
+      const midStyle = `${fullWidthClass} text-text-tertiary font-bold opacity-50 bg-bg-tertiary border-y border-border-color my-0.5`;
 
-      return `<span class="${oursMarkerStyle}">${start}</span>` +
-             `<span class="${oursContentStyle}">${ours}</span>` +
-             `<span class="${midStyle}">${mid}</span>` +
-             `<span class="${theirsContentStyle}">${theirs}</span>` +
-             `<span class="${theirsMarkerStyle}">${end}</span>`;
+      // We wrap the raw text "start" in a span to keep it selectable/visible as code, 
+      // but the div provides the background.
+      return `<div class="${oursMarkerStyle}">${start}${oursLabel}</div>` +
+             `<div class="${oursContentStyle}">${ours}</div>` +
+             `<div class="${midStyle}">${mid}</div>` +
+             `<div class="${theirsContentStyle}">${theirs}</div>` +
+             `<div class="${theirsMarkerStyle}">${end}${theirsLabel}</div>`;
     }
   );
 }
