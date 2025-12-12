@@ -1,6 +1,5 @@
 import { ref, watch, type Ref } from 'vue'
 import hljs from 'highlight.js';
-import 'highlight.js/styles/atom-one-dark.css';
 import { useConflicts } from './useConflicts';
 
 export interface DiffLine {
