@@ -47,6 +47,35 @@ watch([selectedId, () => viewModes.value[selectedId.value || '']], ([newId, newM
   }
 })
 
+const showOpenMenu = ref(false)
+
+const openInEditor = (editor: 'webstorm' | 'vscode' | 'cursor' | 'antigravity') => {
+  if (!selectedItem.value) return
+  showOpenMenu.value = false
+  
+  const path = selectedItem.value.absolutePath
+  let url = ''
+
+  switch (editor) {
+    case 'webstorm':
+      url = `webstorm://open?file=${path}`
+      break
+    case 'vscode':
+      url = `vscode://file/${path}`
+      break
+    case 'cursor':
+      url = `cursor://file/${path}`
+      break
+    case 'antigravity':
+      url = `antigravity://file/${path}`
+      break
+  }
+  
+  if (url) {
+    window.location.href = url
+  }
+}
+
 const toggleView = (id: string, mode: 'diff' | 'edit') => {
   viewModes.value[id] = mode
 }
@@ -340,6 +369,37 @@ onUnmounted(() => {
            </div>
 
            <div class="flex items-center gap-2 shrink-0">
+             <!-- Open in IDE -->
+             <div class="relative">
+               <button @click="showOpenMenu = !showOpenMenu"
+                       title="エディタで開く"
+                       class="px-3 py-2 rounded-md text-sm font-medium text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors flex items-center gap-1.5 border border-transparent hover:border-border-color">
+                 <span class="text-xs">↗</span>
+                 <span>IDE</span>
+               </button>
+               
+               <!-- Backdrop -->
+               <div v-if="showOpenMenu" class="fixed inset-0 z-[55]" @click="showOpenMenu = false"></div>
+
+               <!-- Dropdown -->
+               <div v-if="showOpenMenu" 
+                    @click="showOpenMenu = false"
+                    class="absolute right-0 top-full mt-2 w-40 bg-bg-primary border border-border-color rounded-lg shadow-xl py-1 z-[60] overflow-hidden">
+                 <button @click="openInEditor('webstorm')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
+                   WebStorm
+                 </button>
+                 <button @click="openInEditor('vscode')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
+                   VS Code
+                 </button>
+                 <button @click="openInEditor('cursor')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
+                   Cursor
+                 </button>
+                 <button @click="openInEditor('antigravity')" class="w-full text-left px-4 py-2.5 text-xs hover:bg-bg-tertiary hover:text-text-primary text-text-secondary transition-colors block">
+                   AntiGravity
+                 </button>
+               </div>
+             </div>
+
              <button @click="rejectResolve(selectedItem.id)" 
                      :disabled="!!processing"
                      class="px-4 py-2 rounded-md text-sm font-medium text-accent-red hover:bg-accent-red/10 border border-transparent hover:border-accent-red/20 transition-colors disabled:opacity-50">
