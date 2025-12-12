@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import * as mime from "mime-types";
+import { state } from "../lib/state.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -267,6 +268,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     if (pathname.startsWith("/api/reject/") && method === "POST") {
         const id = pathname.replace("/api/reject/", "");
+        const pending = pendingResolves.get(id);
 
         if (!pendingResolves.has(id)) {
             res.writeHead(404, { "Content-Type": "application/json" });
@@ -274,10 +276,38 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
             return;
         }
 
-        pendingResolves.delete(id);
+        let body = "";
+        req.on("data", chunk => body += chunk);
+        req.on("end", async () => {
+            try {
+                let comment = "";
+                if (body) {
+                    try {
+                        const data = JSON.parse(body);
+                        comment = data.comment || "";
+                    } catch (e) {
+                        // Ignore JSON parse error
+                    }
+                }
 
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
+                if (comment && pending) {
+                    console.log(`[Rejection Comment for ${pending.filePath}]: ${comment}`);
+                    state.addRejection(pending.filePath, comment);
+
+                    if (conflictLogger) {
+                        conflictLogger(`REJECTED: ${pending.filePath}. Reason: ${comment}`);
+                    }
+                }
+
+                pendingResolves.delete(id);
+
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ success: true }));
+            } catch (e: any) {
+                res.writeHead(500, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ success: false, error: e.message }));
+            }
+        });
         return;
     }
 

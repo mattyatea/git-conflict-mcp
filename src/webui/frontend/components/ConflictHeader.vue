@@ -25,12 +25,29 @@ import ResolveModal from './ResolveModal.vue'
 import { ref } from 'vue'
 
 const showResolveModal = ref(false)
+const isRejectMode = ref(false)
 
-const confirmResolve = (comment: string) => {
+const openApproveModal = () => {
+  isRejectMode.value = false
+  showResolveModal.value = true
+}
+
+const openRejectModal = () => {
+  isRejectMode.value = true
+  showResolveModal.value = true
+}
+
+const handleModalConfirm = (comment: string) => {
   if (selectedItem.value) {
-    approveResolve(selectedItem.value.id, comment, () => {
-      showResolveModal.value = false
-    })
+    if (isRejectMode.value) {
+      rejectResolve(selectedItem.value.id, comment, () => {
+        showResolveModal.value = false
+      })
+    } else {
+      approveResolve(selectedItem.value.id, comment, () => {
+        showResolveModal.value = false
+      })
+    }
   }
 }
 </script>
@@ -98,12 +115,12 @@ const confirmResolve = (comment: string) => {
          </div>
        </div>
 
-       <button @click="rejectResolve(selectedItem.id)" 
+       <button @click="openRejectModal" 
                :disabled="!!processing"
                class="px-4 py-2 rounded-md text-sm font-medium text-accent-red hover:bg-accent-red/10 border border-transparent hover:border-accent-red/20 transition-colors disabled:opacity-50">
          拒否
        </button>
-       <button @click="showResolveModal = true" 
+       <button @click="openApproveModal" 
                :disabled="!!processing"
                class="px-5 py-2 rounded-md text-sm font-medium bg-text-primary text-bg-primary hover:bg-white/90 border border-transparent shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2">
          <span v-if="processing === selectedItem.id" class="animate-spin text-xs">⌛</span>
@@ -114,9 +131,12 @@ const confirmResolve = (comment: string) => {
       v-if="selectedItem"
       :show="showResolveModal" 
       :file-path="selectedItem.filePath"
-      :initial-comment="selectedItem.reason"
+      :initial-comment="isRejectMode ? '' : selectedItem.reason"
+      :is-reject="isRejectMode"
+      :title="isRejectMode ? '解決の拒否' : '解決の承認'"
+      :confirm-text="isRejectMode ? '拒否する' : '承認して完了'"
       @close="showResolveModal = false" 
-      @confirm="confirmResolve" 
+      @confirm="handleModalConfirm" 
     />
   </header>
 </template>

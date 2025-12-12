@@ -71,10 +71,14 @@ export function useConflicts() {
         }
     }
 
-    const rejectResolve = async (id: string, onSuccess?: () => void) => {
+    const rejectResolve = async (id: string, comment?: string, onSuccess?: () => void) => {
         processing.value = id
         try {
-            const res = await fetch('/api/reject/' + id, { method: 'POST' })
+            const res = await fetch('/api/reject/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comment })
+            })
             const data = await res.json()
 
             if (data.success) {

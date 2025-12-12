@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getConflictedFilesWithStatus } from "../lib/git.js";
 import { rateLimiter } from "../lib/rateLimit.js";
 import { getPendingResolves } from "../webui/server.js";
+import { state } from "../lib/state.js";
 
 export function registerListConflicts(server: McpServer) {
     server.registerTool(
@@ -61,11 +62,14 @@ export function registerListConflicts(server: McpServer) {
                     // Include detailed information with conflict types
                     slice.forEach((item) => {
                         const suggestion = getResolutionSuggestion(item.status);
+                        const rejectionReason = state.getRejection(item.file);
+
                         result[item.id] = {
                             file: item.file,
                             conflictType: item.conflictType,
                             fileSize: item.fileSize !== undefined ? `${item.fileSize} bytes` : "N/A (file deleted)",
-                            suggestion: suggestion
+                            suggestion: suggestion,
+                            ...(rejectionReason ? { previousRejectionReason: rejectionReason } : {})
                         };
                     });
                 } else {
