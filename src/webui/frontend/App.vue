@@ -174,15 +174,61 @@ const rejectResolve = async (id: string) => {
 const highlightConflicts = (content?: string) => {
   if (!content) return ''
   
-  // Use span with full width background for highlights
-  // We use inline-block to allow background to be visible properly while maintaining line flow
-  return content
+  // Basic HTML escape (preserve existing functionality)
+  const escaped = content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/^(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold inline-block w-full">$1</span>')
-    .replace(/^(=======)$/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold inline-block w-full">$1</span>')
-    .replace(/^(&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold inline-block w-full">$1</span>')
+
+  // Enhanced highlighting for Git conflicts
+  // We match the standard git conflict markers and their content
+  // <<<<<<< HEAD ... ======= ... >>>>>>> ...
+  return escaped.replace(
+    /(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*?$)([\s\S]*?)(^=======.*?$)([\s\S]*?)(^&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*?$)/gm,
+    (match, start, ours, mid, theirs, end) => {
+      // Styles for Ours (Current) - Blue theme
+      const oursMarkerStyle = "text-accent-blue font-bold opacity-75 w-full inline-block bg-accent-blue/10 border-t border-accent-blue/20";
+      const oursContentStyle = "text-text-primary bg-accent-blue/5 w-full inline-block"; // Block to ensure background covers full width
+      
+      // Styles for Theirs (Incoming) - Green theme
+      const theirsMarkerStyle = "text-accent-green font-bold opacity-75 w-full inline-block bg-accent-green/10 border-b border-accent-green/20";
+      const theirsContentStyle = "text-text-primary bg-accent-green/5 w-full inline-block";
+
+      // Middle separator style
+      const midStyle = "text-text-tertiary font-bold opacity-50 w-full inline-block bg-bg-tertiary border-y border-border-color";
+
+      return `<span class="${oursMarkerStyle}">${start}</span>` +
+             `<span class="${oursContentStyle}">${ours}</span>` +
+             `<span class="${midStyle}">${mid}</span>` +
+             `<span class="${theirsContentStyle}">${theirs}</span>` +
+             `<span class="${theirsMarkerStyle}">${end}</span>`;
+    }
+  );
+}
+
+const saveContent = async (id: string, content: string) => {
+  if (!content) return
+  processing.value = id
+  
+  try {
+    const res = await fetch('/api/save/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    })
+    const data = await res.json()
+    
+    if (data.success) {
+      showToast('保存しました')
+      await loadPending() // Refresh data
+    } else {
+      showToast('エラー: ' + data.error, 'error')
+    }
+  } catch (e) {
+    showToast('保存に失敗しました', 'error')
+  } finally {
+    processing.value = null
+  }
 }
 
 // Diff parsing
