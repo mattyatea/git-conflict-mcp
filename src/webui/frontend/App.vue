@@ -28,26 +28,38 @@ const selectedItem = computed(() =>
 )
 
 // View mode state per item
-const viewModes = ref<Record<string, 'diff' | 'raw' | 'edit'>>({})
+const viewModes = ref<Record<string, 'diff' | 'edit'>>({})
 const editContent = ref('')
+const backdropScrollTop = ref(0)
 
 // Initialize edit content when item changes or mode changes
 watch([selectedId, () => viewModes.value[selectedId.value || '']], ([newId, newMode]) => {
   if (newId && pendingResolves.value) {
     const item = pendingResolves.value.find(p => p.id === newId)
-    if (item && newMode === 'edit') {
+    // Default to edit mode if not set
+    if (!viewModes.value[newId]) {
+      viewModes.value[newId] = 'edit'
+    }
+    
+    if (item) {
       editContent.value = item.fileContent || ''
     }
   }
 })
 
-const toggleView = (id: string, mode: 'diff' | 'raw' | 'edit') => {
+const toggleView = (id: string, mode: 'diff' | 'edit') => {
   viewModes.value[id] = mode
 }
 
 const getViewMode = (item: PendingResolve) => {
   if (viewModes.value[item.id]) return viewModes.value[item.id]
-  return item.gitDiff ? 'diff' : 'raw'
+  // Default to edit (formerly raw/file content)
+  return 'edit'
+}
+
+const handleScroll = (e: Event) => {
+  const target = e.target as HTMLTextAreaElement
+  backdropScrollTop.value = target.scrollTop
 }
 
 const getTypeLabel = (type: string) => {
@@ -131,15 +143,17 @@ const rejectResolve = async (id: string) => {
 
 // Conflict highlighting
 const highlightConflicts = (content?: string) => {
-  if (!content) return '<span class="text-text-tertiary italic">表示できる内容がありません</span>'
+  if (!content) return ''
   
+  // Use span with full width background for highlights
+  // We use inline-block to allow background to be visible properly while maintaining line flow
   return content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/^(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold w-full block">$1</span>')
-    .replace(/^(=======)$/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold w-full block">$1</span>')
-    .replace(/^(&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold w-full block">$1</span>')
+    .replace(/^(&lt;&lt;&lt;&lt;&lt;&lt;&lt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold inline-block w-full">$1</span>')
+    .replace(/^(=======)$/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold inline-block w-full">$1</span>')
+    .replace(/^(&gt;&gt;&gt;&gt;&gt;&gt;&gt;.*$)/gm, '<span class="text-accent-yellow bg-accent-yellow/10 font-bold inline-block w-full">$1</span>')
 }
 
 // Diff parsing
@@ -343,20 +357,15 @@ onUnmounted(() => {
         <!-- View Controls & Diff Stats -->
         <div class="px-6 py-3 border-b border-border-color flex items-center justify-between bg-bg-subtle shrink-0">
           <div class="flex items-center p-1 bg-bg-primary border border-border-color rounded-lg">
+            <button @click="toggleView(selectedItem.id, 'edit')"
+                    class="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                    :class="getViewMode(selectedItem) === 'edit' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
+              エディタ
+            </button>
             <button @click="toggleView(selectedItem.id, 'diff')"
                     class="px-3 py-1 rounded-md text-xs font-medium transition-all"
                     :class="getViewMode(selectedItem) === 'diff' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
               差分表示
-            </button>
-            <button @click="toggleView(selectedItem.id, 'raw')"
-                    class="px-3 py-1 rounded-md text-xs font-medium transition-all"
-                    :class="getViewMode(selectedItem) === 'raw' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
-              ファイル内容
-            </button>
-            <button @click="toggleView(selectedItem.id, 'edit')"
-                    class="px-3 py-1 rounded-md text-xs font-medium transition-all"
-                    :class="getViewMode(selectedItem) === 'edit' ? 'bg-bg-tertiary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'">
-              編集
             </button>
           </div>
           
@@ -411,15 +420,22 @@ onUnmounted(() => {
               </div>
             </div>
           </template>
-          <template v-else-if="getViewMode(selectedItem) === 'edit'">
-            <div class="h-full w-full flex flex-col">
+          <template v-else>
+            <div class="relative h-full w-full flex-1 overflow-hidden bg-bg-primary">
+              <!-- Backdrop for highlighting -->
+              <div class="absolute inset-0 pointer-events-none p-6 font-mono text-[13px] leading-6 whitespace-pre-wrap break-all overflow-hidden z-0"
+                   :scrollTop="backdropScrollTop"
+                   ref="backdropRef"
+                   v-html="highlightConflicts(editContent)">
+              </div>
+              
+              <!-- Textarea for editing -->
+              <!-- text-transparent/caret-white trick for overlay editing -->
               <textarea v-model="editContent" 
-                        class="flex-1 w-full bg-bg-primary text-text-primary p-6 font-mono text-[13px] leading-6 resize-none focus:outline-none focus:bg-bg-subtle/20 transition-colors"
+                        @scroll="handleScroll"
+                        class="absolute inset-0 w-full h-full bg-transparent text-transparent caret-text-primary p-6 font-mono text-[13px] leading-6 resize-none focus:outline-none z-10 break-all"
                         spellcheck="false"></textarea>
             </div>
-          </template>
-          <template v-else>
-            <div class="p-8 whitespace-pre-wrap break-all text-text-secondary" v-html="highlightConflicts(selectedItem.fileContent)"></div>
           </template>
         </div>
       </div>
