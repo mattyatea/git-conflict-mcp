@@ -30,6 +30,7 @@ export interface PendingResolve {
     absolutePath: string;     // Absolute path
     projectPath: string;
     type: "resolve" | "delete" | "add";
+    reason?: string;          // Reason for resolution
     fileContent?: string;     // Current file content (if exists)
     gitDiff?: string;         // Git diff output
     timestamp: number;
@@ -189,6 +190,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                     absolutePath: data.absolutePath,
                     projectPath: data.projectPath,
                     type: data.type || "resolve",
+                    reason: data.reason,
                     fileContent,
                     gitDiff,
                     timestamp: Date.now(),

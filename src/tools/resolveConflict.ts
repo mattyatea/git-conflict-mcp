@@ -20,6 +20,7 @@ async function sendToWebUI(data: {
     absolutePath: string;
     projectPath: string;
     type: string;
+    reason?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
         const response = await fetch(`${WEBUI_URL}/api/add`, {
@@ -42,10 +43,11 @@ export function registerResolveConflict(server: McpServer) {
                 id: z.string().optional().describe("The ID of the file to resolve (from list_conflicts)."),
                 path: z.string().optional().describe("The file path to resolve."),
                 type: resolutionTypeSchema.optional().describe("Resolution type. Default is 'resolve'."),
+                reason: z.string().optional().describe("The reason why this resolution is valid."),
                 force: z.boolean().optional().describe("Force resolution, bypassing the safety check."),
             }),
         },
-        async ({ id, path, type, force }) => {
+        async ({ id, path, type, reason, force }) => {
             if (!id && !path) {
                 return { content: [{ type: "text", text: "Either id or path must be provided." }], isError: true };
             }
@@ -92,6 +94,7 @@ export function registerResolveConflict(server: McpServer) {
                     absolutePath,
                     projectPath,
                     type: resolutionType,
+                    reason,
                 });
 
                 if (!result.success) {
@@ -102,7 +105,7 @@ export function registerResolveConflict(server: McpServer) {
                 return {
                     content: [{
                         type: "text",
-                        text: `✅ 解決リクエストをWebUIに送信しました。\n\nファイル: ${fileToResolve}\nタイプ: ${typeLabel}\nWebUI: ${WEBUI_URL}\n\n人間が確認後、実際の解決が実行されます。`
+                        text: `✅ 解決リクエストをWebUIに送信しました。\n\nファイル: ${fileToResolve}\nタイプ: ${typeLabel}\n理由: ${reason || "(なし)"}\nWebUI: ${WEBUI_URL}\n\n人間が確認後、実際の解決が実行されます。`
                     }]
                 };
             } catch (e: any) {

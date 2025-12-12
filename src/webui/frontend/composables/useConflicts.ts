@@ -7,6 +7,7 @@ export interface PendingResolve {
     absolutePath: string;
     projectPath: string;
     type: "resolve" | "delete" | "add";
+    reason?: string;
     fileContent?: string;
     gitDiff?: string;
     timestamp: number;

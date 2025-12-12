@@ -114,6 +114,7 @@ const confirmResolve = (comment: string) => {
       v-if="selectedItem"
       :show="showResolveModal" 
       :file-path="selectedItem.filePath"
+      :initial-comment="selectedItem.reason"
       @close="showResolveModal = false" 
       @confirm="confirmResolve" 
     />

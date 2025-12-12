@@ -4,6 +4,7 @@ import { ref, watch } from 'vue'
 const props = defineProps<{
   show: boolean
   filePath: string
+  initialComment?: string
 }>()
 
 const emit = defineEmits<{
@@ -15,7 +16,7 @@ const comment = ref('')
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    comment.value = ''
+    comment.value = props.initialComment || ''
   }
 })
 
