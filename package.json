@@ -8,7 +8,8 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "git-conflict-mcp": "dist/index.js"
+    "git-conflict-mcp": "dist/index.js",
+    "git-conflict-mcp-webui": "dist/webui/server.js"
   },
   "scripts": {
     "build": "tsc",
