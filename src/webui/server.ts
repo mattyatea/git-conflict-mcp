@@ -41,6 +41,16 @@ function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// Check if a file path is pending resolution
+export function isConflictPending(filePath: string): boolean {
+    for (const pending of pendingResolves.values()) {
+        if (pending.filePath === filePath) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Run git command
 async function runGit(args: string[], cwd: string): Promise<string> {
     try {
