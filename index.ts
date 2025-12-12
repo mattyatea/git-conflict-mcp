@@ -2,7 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerTools } from "./src/tools/index.js";
-import { startWebUIServer, setUseExternalWebUI, WEBUI_IDENTIFIER } from "./src/webui/server.js";
+import { startWebUIServer, setUseExternalWebUI, WEBUI_IDENTIFIER, setConflictLogger } from "./src/webui/server.js";
 import { Server } from "http";
 
 // Start WebUI Server (runs on port 3456 by default)
@@ -44,6 +44,25 @@ registerTools(mcpServer);
 // Start MCP server (stdio)
 const transport = new StdioServerTransport();
 await mcpServer.connect(transport);
+
+// Set up logger to send comments to MCP client
+setConflictLogger((message) => {
+    try {
+        // Accessing underlying server instance to send log message
+        const serverInstance = (mcpServer as any).server;
+        if (serverInstance && typeof serverInstance.sendLoggingMessage === 'function') {
+            serverInstance.sendLoggingMessage({
+                level: "notice", // Using 'notice' to ensure visibility
+                data: message
+            });
+        } else {
+            // Fallback
+            console.error(`[MCP Log] ${message}`);
+        }
+    } catch (e) {
+        console.error(`Failed to send MCP log: ${message}`);
+    }
+});
 
 // Graceful shutdown handler
 async function shutdown(signal: string) {

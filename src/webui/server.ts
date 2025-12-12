@@ -38,11 +38,18 @@ export interface PendingResolve {
 // In-memory pending resolves
 const pendingResolves: Map<string, PendingResolve> = new Map();
 let externalWebUIUrl: string | null = null;
+let conflictLogger: ((message: string) => void) | null = null;
 
 // Configure to use external WebUI
 export function setUseExternalWebUI(url: string) {
     externalWebUIUrl = url;
 }
+
+// Set logger for conflict resolution comments
+export function setConflictLogger(logger: (message: string) => void) {
+    conflictLogger = logger;
+}
+
 
 // Get all pending resolves (local or external)
 export async function getPendingResolves(): Promise<PendingResolve[]> {
@@ -225,6 +232,9 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
                 if (comment) {
                     console.log(`[Resolution Comment for ${pending.filePath}]: ${comment}`);
+                    if (conflictLogger) {
+                        conflictLogger(comment);
+                    }
                 }
 
                 let message: string;
