@@ -27,9 +27,10 @@ import { ref } from 'vue'
 const showResolveModal = ref(false)
 const isRejectMode = ref(false)
 
-const openApproveModal = () => {
-  isRejectMode.value = false
-  showResolveModal.value = true
+const handleApprove = () => {
+  if (selectedItem.value) {
+    approveResolve(selectedItem.value.id, selectedItem.value.reason)
+  }
 }
 
 const openRejectModal = () => {
@@ -44,6 +45,7 @@ const handleModalConfirm = (comment: string) => {
         showResolveModal.value = false
       })
     } else {
+      // Fallback in case modal is somehow used for approval
       approveResolve(selectedItem.value.id, comment, () => {
         showResolveModal.value = false
       })
@@ -120,7 +122,7 @@ const handleModalConfirm = (comment: string) => {
                class="px-4 py-2 rounded-md text-sm font-medium text-accent-red hover:bg-accent-red/10 border border-transparent hover:border-accent-red/20 transition-colors disabled:opacity-50">
          拒否
        </button>
-       <button @click="openApproveModal" 
+       <button @click="handleApprove" 
                :disabled="!!processing"
                class="px-5 py-2 rounded-md text-sm font-medium bg-text-primary text-bg-primary hover:bg-white/90 border border-transparent shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2">
          <span v-if="processing === selectedItem.id" class="animate-spin text-xs">⌛</span>
