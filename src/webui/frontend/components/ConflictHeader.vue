@@ -20,6 +20,19 @@ const {
 } = useEditorSettings()
 
 const { getFirstConflictLine } = useDiff()
+
+import ResolveModal from './ResolveModal.vue'
+import { ref } from 'vue'
+
+const showResolveModal = ref(false)
+
+const confirmResolve = (comment: string) => {
+  if (selectedItem.value) {
+    approveResolve(selectedItem.value.id, comment, () => {
+      showResolveModal.value = false
+    })
+  }
+}
 </script>
 
 <template>
@@ -90,12 +103,19 @@ const { getFirstConflictLine } = useDiff()
                class="px-4 py-2 rounded-md text-sm font-medium text-accent-red hover:bg-accent-red/10 border border-transparent hover:border-accent-red/20 transition-colors disabled:opacity-50">
          拒否
        </button>
-       <button @click="approveResolve(selectedItem.id)" 
+       <button @click="showResolveModal = true" 
                :disabled="!!processing"
                class="px-5 py-2 rounded-md text-sm font-medium bg-text-primary text-bg-primary hover:bg-white/90 border border-transparent shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2">
          <span v-if="processing === selectedItem.id" class="animate-spin text-xs">⌛</span>
          解決を承認
        </button>
      </div>
+    <ResolveModal 
+      v-if="selectedItem"
+      :show="showResolveModal" 
+      :file-path="selectedItem.filePath"
+      @close="showResolveModal = false" 
+      @confirm="confirmResolve" 
+    />
   </header>
 </template>

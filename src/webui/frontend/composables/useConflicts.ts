@@ -46,10 +46,14 @@ export function useConflicts() {
         }
     }
 
-    const approveResolve = async (id: string, onSuccess?: () => void) => {
+    const approveResolve = async (id: string, comment?: string, onSuccess?: () => void) => {
         processing.value = id
         try {
-            const res = await fetch('/api/approve/' + id, { method: 'POST' })
+            const res = await fetch('/api/approve/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comment })
+            })
             const data = await res.json()
 
             if (data.success) {

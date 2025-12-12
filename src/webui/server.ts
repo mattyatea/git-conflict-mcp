@@ -209,29 +209,47 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
             return;
         }
 
-        try {
-            let message: string;
-            switch (pending.type) {
-                case "delete":
-                    await runGit(["rm", pending.filePath], pending.projectPath);
-                    message = `Deleted (git rm) ${pending.filePath}`;
-                    break;
-                case "add":
-                case "resolve":
-                default:
-                    await runGit(["add", pending.filePath], pending.projectPath);
-                    message = `Resolved (git add) ${pending.filePath}`;
-                    break;
+        let body = "";
+        req.on("data", chunk => body += chunk);
+        req.on("end", async () => {
+            try {
+                let comment = "";
+                if (body) {
+                    try {
+                        const data = JSON.parse(body);
+                        comment = data.comment || "";
+                    } catch (e) {
+                        // Ignore JSON parse error if body is empty or invalid, just proceed without comment
+                    }
+                }
+
+                if (comment) {
+                    console.log(`[Resolution Comment for ${pending.filePath}]: ${comment}`);
+                }
+
+                let message: string;
+                switch (pending.type) {
+                    case "delete":
+                        await runGit(["rm", pending.filePath], pending.projectPath);
+                        message = `Deleted (git rm) ${pending.filePath}`;
+                        break;
+                    case "add":
+                    case "resolve":
+                    default:
+                        await runGit(["add", pending.filePath], pending.projectPath);
+                        message = `Resolved (git add) ${pending.filePath}`;
+                        break;
+                }
+
+                pendingResolves.delete(id);
+
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ success: true, message }));
+            } catch (e: any) {
+                res.writeHead(500, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ success: false, error: e.message }));
             }
-
-            pendingResolves.delete(id);
-
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true, message }));
-        } catch (e: any) {
-            res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: false, error: e.message }));
-        }
+        });
         return;
     }
 
