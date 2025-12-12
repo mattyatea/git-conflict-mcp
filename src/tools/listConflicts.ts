@@ -28,7 +28,15 @@ export function registerListConflicts(server: McpServer) {
                 const allConflicts = await getConflictedFilesWithStatus();
 
                 // Apply filters first
-                let filteredConflicts = allConflicts;
+                // Assign IDs before filtering so they match the index in getConflictedFiles()
+                // distinct from the filtered view index
+                const conflictsWithIds = allConflicts.map((conflict, index) => ({
+                    ...conflict,
+                    id: (index + 1).toString()
+                }));
+
+                // Apply filters
+                let filteredConflicts = conflictsWithIds;
 
                 if (extension) {
                     const ext = extension.startsWith('.') ? extension : `.${extension}`;
@@ -39,15 +47,9 @@ export function registerListConflicts(server: McpServer) {
                     filteredConflicts = filteredConflicts.filter(c => c.file.includes(path));
                 }
 
-                // Assign IDs after filtering so they are sequential
-                const conflictsWithIds = filteredConflicts.map((conflict, index) => ({
-                    ...conflict,
-                    id: (index + 1).toString()
-                }));
-
                 const start = (pageNum - 1) * pageSize;
                 const end = start + pageSize;
-                const slice = conflictsWithIds.slice(start, end);
+                const slice = filteredConflicts.slice(start, end);
 
                 const result: Record<string, any> = {};
 
