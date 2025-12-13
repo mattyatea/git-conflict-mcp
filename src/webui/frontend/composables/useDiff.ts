@@ -20,7 +20,7 @@ export function useDiff() {
         if (newItem) {
             const id = newItem.id
             if (!viewModes.value[id]) {
-                viewModes.value[id] = 'edit'
+                viewModes.value[id] = 'diff'
             }
             // Only update edit content if it seems we switched items or it is empty
             // But we need to be careful not to overwrite unsaved changes if we switch back and forth?
@@ -41,7 +41,7 @@ export function useDiff() {
         if (selectedItem.value && viewModes.value[selectedItem.value.id]) {
             return viewModes.value[selectedItem.value.id]
         }
-        return 'edit'
+        return 'diff'
     }
 
     const parseDiff = (diffText: string): { stats: { additions: number, deletions: number }, lines: DiffLine[] } => {
