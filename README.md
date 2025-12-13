@@ -23,7 +23,8 @@ You can run the server directly using `npx`. This requires no manual installatio
 npx -y git-conflict-mcp
 ```
 
-The WebUI will start automatically.
+The WebUI will start automatically. You can access it at:
+http://localhost:3456
 
 ## MCP Configuration
 
