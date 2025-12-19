@@ -4,12 +4,13 @@ import { getConflictedFilesWithStatus } from "../lib/git.js";
 import { rateLimiter } from "../lib/rateLimit.js";
 import { getPendingResolves } from "../webui/server.js";
 import { state } from "../lib/state.js";
+import { generateId } from "../lib/id.js";
 
 export function registerListConflicts(server: McpServer) {
     server.registerTool(
         "list_conflicts",
         {
-            description: "List files with git conflicts including conflict types. Returns a map of ID to file info with conflict type and suggested resolution. (Rate limit: 2 calls per minute)",
+            description: "List files with git conflicts including conflict types. Returns a map of ID to file info with conflict type and suggested resolution. (Rate limit: 2 calls per minute). IMPORTANT: You must run init_project before using this tool.",
             inputSchema: z.object({
                 page: z.number().optional().describe("Page number (1-based). Default is 1."),
                 extension: z.string().optional().describe("Filter by file extension (e.g. 'ts', '.ts')."),
@@ -29,10 +30,10 @@ export function registerListConflicts(server: McpServer) {
             try {
                 const allConflicts = await getConflictedFilesWithStatus();
 
-                // Assign IDs before filtering so they match the index in getConflictedFiles()
-                const conflictsWithIds = allConflicts.map((conflict, index) => ({
+                // Assign consistent IDs based on file path
+                const conflictsWithIds = allConflicts.map((conflict) => ({
                     ...conflict,
-                    id: (index + 1).toString()
+                    id: generateId(conflict.file)
                 }));
 
                 // Fetch pending resolves (local or external)

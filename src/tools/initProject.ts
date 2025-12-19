@@ -7,7 +7,7 @@ export function registerInitProject(server: McpServer) {
     server.registerTool(
         "init_project",
         {
-            description: "Initialize the project by setting the root directory path.",
+            description: "Initialize the project by setting the root directory path. This must be the first tool called to set up the environment.",
             inputSchema: z.object({
                 path: z.string().describe("Absolute path to the git project root."),
             }),

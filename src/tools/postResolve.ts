@@ -5,7 +5,7 @@ export function registerPostResolve(server: McpServer) {
     server.registerTool(
         "post_resolve",
         {
-            description: "Execute this tool BEFORE running resolve_conflict to confirm the resolution process.",
+            description: "Execute this tool BEFORE running resolve_conflict to confirm the resolution process. This acts as a safety confirmation step.",
             inputSchema: z.object({}),
         },
         async () => {

@@ -70,10 +70,7 @@ export async function getPendingResolves(): Promise<PendingResolve[]> {
     return Array.from(pendingResolves.values());
 }
 
-// Generate unique ID
-function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+import { generateId } from "../lib/id.js";
 
 // Run git command
 async function runGit(args: string[], cwd: string): Promise<string> {
@@ -100,6 +97,58 @@ async function getGitDiff(filePath: string, projectPath: string): Promise<string
         return await runGit(["diff", filePath], projectPath);
     } catch {
         return "";
+    }
+}
+
+// Add a pending resolve request
+export async function addPendingResolve(data: {
+    filePath: string;
+    absolutePath: string;
+    projectPath: string;
+    type: "resolve" | "delete" | "add";
+    reason?: string;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+    if (externalWebUIUrl) {
+        try {
+            const res = await fetch(`${externalWebUIUrl}/api/add`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error(`External WebUI returned ${res.status}`);
+            return await res.json() as any;
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    // Local
+    try {
+        const id = generateId(data.filePath); // Use consistent ID
+
+        // Check if already exists?
+        // If we want to overwrite, we can just set it.
+        // It provides deduplication automatically.
+
+        const fileContent = await getFileContent(data.absolutePath);
+        const gitDiff = await getGitDiff(data.filePath, data.projectPath);
+
+        const pending: PendingResolve = {
+            id,
+            filePath: data.filePath,
+            absolutePath: data.absolutePath,
+            projectPath: data.projectPath,
+            type: data.type || "resolve",
+            reason: data.reason,
+            fileContent,
+            gitDiff,
+            timestamp: Date.now(),
+        };
+
+        pendingResolves.set(id, pending);
+        return { success: true, id };
+    } catch (e: any) {
+        return { success: false, error: e.message };
     }
 }
 
@@ -188,27 +237,15 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         req.on("end", async () => {
             try {
                 const data = JSON.parse(body);
-                const id = generateId();
+                const result = await addPendingResolve(data);
 
-                const fileContent = await getFileContent(data.absolutePath);
-                const gitDiff = await getGitDiff(data.filePath, data.projectPath);
-
-                const pending: PendingResolve = {
-                    id,
-                    filePath: data.filePath,
-                    absolutePath: data.absolutePath,
-                    projectPath: data.projectPath,
-                    type: data.type || "resolve",
-                    reason: data.reason,
-                    fileContent,
-                    gitDiff,
-                    timestamp: Date.now(),
-                };
-
-                pendingResolves.set(id, pending);
-
-                res.writeHead(200, { "Content-Type": "application/json" });
-                res.end(JSON.stringify({ success: true, id }));
+                if (result.success) {
+                    res.writeHead(200, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(result));
+                } else {
+                    res.writeHead(400, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(result));
+                }
             } catch (e: any) {
                 res.writeHead(400, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: false, error: e.message }));
