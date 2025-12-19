@@ -17,6 +17,7 @@ const pendingResolves = ref<PendingResolve[]>([])
 const selectedId = ref<string | null>(null)
 const loading = ref(false)
 const processing = ref<string | null>(null)
+const isReviewMode = ref(false)
 
 export function useConflicts() {
     const { showToast } = useToast()
@@ -135,13 +136,25 @@ export function useConflicts() {
         })
     }
 
+    const loadConfig = async () => {
+        try {
+            const res = await fetch('/api/config')
+            const data = await res.json()
+            isReviewMode.value = data.reviewMode
+        } catch (e) {
+            console.error('Failed to load config:', e)
+        }
+    }
+
     return {
         pendingResolves,
         selectedId,
         selectedItem,
         loading,
         processing,
+        isReviewMode,
         loadPending,
+        loadConfig,
         approveResolve,
         rejectResolve,
         saveContent,

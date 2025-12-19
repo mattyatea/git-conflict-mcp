@@ -7,7 +7,8 @@ const {
   selectedId, 
   loadPending, 
   getTypeLabel, 
-  formatTime 
+  formatTime,
+  isReviewMode
 } = useConflicts()
 
 const { showSettings } = useEditorSettings()
@@ -21,6 +22,9 @@ const { showSettings } = useEditorSettings()
           GC
         </div>
         <h1 class="font-medium text-sm tracking-tight text-text-primary">解決待ち一覧</h1>
+        <span v-if="isReviewMode" class="ml-2 px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary text-[10px] font-bold border border-accent-primary/20">
+          REVIEW MODE
+        </span>
       </div>
       <div class="px-2 py-0.5 rounded-full bg-bg-tertiary border border-border-color text-xs font-mono text-text-secondary">
         {{ pendingResolves.length }}

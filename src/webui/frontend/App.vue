@@ -11,13 +11,14 @@ import { useConflicts } from './composables/useConflicts'
 import { useEditorSettings } from './composables/useEditorSettings'
 import { useDiff } from './composables/useDiff'
 
-const { loadPending, selectedItem } = useConflicts()
+const { loadPending, selectedItem, loadConfig, isReviewMode } = useConflicts()
 const { loadSettings } = useEditorSettings()
 const { getViewMode } = useDiff()
 
 let interval: NodeJS.Timeout
 
 onMounted(() => {
+  loadConfig() // Load review mode config
   loadSettings()
   loadPending()
   interval = setInterval(loadPending, 5000)
