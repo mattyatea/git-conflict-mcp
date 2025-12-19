@@ -40,8 +40,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.23.0",
     "@types/highlight.js": "^9.12.4",
+    "@types/minimist": "^1.2.5",
     "highlight.js": "^11.11.1",
     "mime-types": "^3.0.2",
+    "minimist": "^1.2.8",
     "zod": "^4.1.13"
   }
 }

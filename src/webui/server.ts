@@ -41,6 +41,11 @@ export interface PendingResolve {
 const pendingResolves: Map<string, PendingResolve> = new Map();
 let externalWebUIUrl: string | null = null;
 let conflictLogger: ((message: string) => void) | null = null;
+let isReviewMode = false;
+
+export function getReviewMode() {
+    return isReviewMode;
+}
 
 
 
@@ -224,10 +229,21 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         return;
     }
 
-    if (pathname === "/api/pending" && method === "GET") {
-        const pending = Array.from(pendingResolves.values());
+    if (pathname === "/api/config" && method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(pending));
+        res.end(JSON.stringify({ reviewMode: isReviewMode }));
+        return;
+    }
+
+    if (pathname === "/api/pending" && method === "GET") {
+        try {
+            const pending = await getPendingResolves();
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(pending));
+        } catch (e: any) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: e.message }));
+        }
         return;
     }
 
@@ -256,6 +272,29 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     if (pathname.startsWith("/api/approve/") && method === "POST") {
         const id = pathname.replace("/api/approve/", "");
+
+        if (externalWebUIUrl) {
+            // Proxy to external WebUI
+            let body = "";
+            req.on("data", chunk => body += chunk);
+            req.on("end", async () => {
+                try {
+                    const resExt = await fetch(`${externalWebUIUrl}${pathname}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: body || "{}"
+                    });
+                    const data = await resExt.json() as any;
+                    res.writeHead(resExt.status, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(data));
+                } catch (e: any) {
+                    res.writeHead(500, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({ success: false, error: e.message }));
+                }
+            });
+            return;
+        }
+
         const pending = pendingResolves.get(id);
 
         if (!pending) {
@@ -313,6 +352,29 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     if (pathname.startsWith("/api/reject/") && method === "POST") {
         const id = pathname.replace("/api/reject/", "");
+
+        if (externalWebUIUrl) {
+            // Proxy to external WebUI
+            let body = "";
+            req.on("data", chunk => body += chunk);
+            req.on("end", async () => {
+                try {
+                    const resExt = await fetch(`${externalWebUIUrl}${pathname}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: body || "{}"
+                    });
+                    const data = await resExt.json() as any;
+                    res.writeHead(resExt.status, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(data));
+                } catch (e: any) {
+                    res.writeHead(500, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({ success: false, error: e.message }));
+                }
+            });
+            return;
+        }
+
         const pending = pendingResolves.get(id);
 
         if (!pendingResolves.has(id)) {
@@ -358,6 +420,29 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     if (pathname.startsWith("/api/save/") && method === "POST") {
         const id = pathname.replace("/api/save/", "");
+
+        if (externalWebUIUrl) {
+            // Proxy to external WebUI
+            let body = "";
+            req.on("data", chunk => body += chunk);
+            req.on("end", async () => {
+                try {
+                    const resExt = await fetch(`${externalWebUIUrl}${pathname}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: body
+                    });
+                    const data = await resExt.json() as any;
+                    res.writeHead(resExt.status, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(data));
+                } catch (e: any) {
+                    res.writeHead(500, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({ success: false, error: e.message }));
+                }
+            });
+            return;
+        }
+
         const pending = pendingResolves.get(id);
 
         if (!pending) {
@@ -410,11 +495,16 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 }
 
 // Start server function (exported for use in main index.ts)
-export function startWebUIServer(port: number = PORT): http.Server {
+// Start server function (exported for use in main index.ts)
+export function startWebUIServer(port: number = PORT, reviewMode: boolean = false): http.Server {
+    isReviewMode = reviewMode;
     const server = http.createServer(handleRequest);
 
     server.listen(port, "127.0.0.1", () => {
         console.error(`🔀 Git Conflict Resolution WebUI`);
+        if (isReviewMode) {
+            console.error(`   Mode: REVIEW MODE (--review)`);
+        }
         console.error(`   Running at: http://localhost:${port}`);
     });
 

@@ -5,9 +5,32 @@ import { registerTools } from "./src/tools/index.js";
 import { startWebUIServer, setUseExternalWebUI, WEBUI_IDENTIFIER, setConflictLogger } from "./src/webui/server.js";
 import { Server } from "http";
 
-// Start WebUI Server (runs on port 3456 by default)
-const webuiPort = parseInt(process.env.WEBUI_PORT || "3456");
+// Parse command line arguments
+const args = process.argv.slice(2);
+const reviewMode = args.includes('--review');
+const portArgIndex = args.indexOf('--port');
+let explicitPort: number | null = null;
+if (portArgIndex !== -1 && args[portArgIndex + 1]) {
+    explicitPort = parseInt(args[portArgIndex + 1] || "3456", 10);
+}
+
+// Start WebUI Server (runs on port 3456 by default, or 6543 for review mode)
+const defaultPort = reviewMode ? 6543 : 3456;
+const webuiPort = explicitPort || parseInt(process.env.WEBUI_PORT as string || defaultPort.toString());
 let webuiServer: Server | null = null;
+
+if (reviewMode) {
+    // In review mode, we assume the main instance is running on the default port (3456)
+    // or we could add another arg for upstream port, but for now assuming 3456.
+    // We connect to it to fetch pending resolves.
+    const upstreamPort = 3456;
+    if (webuiPort !== upstreamPort) {
+        setUseExternalWebUI(`http://localhost:${upstreamPort}`);
+        console.error(`Review Mode: Connected to upstream WebUI at http://localhost:${upstreamPort}`);
+    } else {
+        console.warn(`Warning: Review mode port is same as upstream default (${upstreamPort}). Make sure upstream is on a different port.`);
+    }
+}
 
 try {
     const res = await fetch(`http://127.0.0.1:${webuiPort}/api/health`);
@@ -15,8 +38,12 @@ try {
     const data = await res.json().catch(() => ({})) as any;
 
     if (res.ok && data.identifier === WEBUI_IDENTIFIER) {
-        console.error(`Using existing WebUI at http://localhost:${webuiPort}`);
-        setUseExternalWebUI(`http://localhost:${webuiPort}`);
+        if (!reviewMode) {
+            console.error(`Using existing WebUI at http://localhost:${webuiPort}`);
+            setUseExternalWebUI(`http://localhost:${webuiPort}`);
+        } else {
+            console.error(`Error: Port ${webuiPort} is already in use.`);
+        }
     } else {
         console.error(`Error: Port ${webuiPort} is already in use by another application. WebUI features might be unavailable.`);
         // Do not exit, allow MCP server to run even if WebUI fails to start.
@@ -24,7 +51,7 @@ try {
 } catch (e: any) {
     if (e?.cause?.code === 'ECONNREFUSED') {
         // Port is free, start our own server
-        webuiServer = startWebUIServer(webuiPort);
+        webuiServer = startWebUIServer(webuiPort, reviewMode);
     } else {
         console.error(`Error checking WebUI port: ${e.message}. WebUI features might be unavailable.`);
         // Do not exit
