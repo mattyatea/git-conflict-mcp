@@ -6,7 +6,7 @@ export function registerListPendingResolves(server: McpServer) {
     server.registerTool(
         "list_pending_resolutions",
         {
-            description: "List conflicts that are pending resolution. Returns a simplified list containing only the file ID and file path. Use read_pending_resolution to see details.",
+            description: "List conflicts that are pending resolution. Returns a simplified list containing ONLY the file ID and file path. Use read_pending_resolution to get the file content, diff, and reason.",
             inputSchema: z.object({
                 page: z.number().optional().describe("Page number (1-based). Default is 1."),
             }),
@@ -27,7 +27,8 @@ export function registerListPendingResolves(server: McpServer) {
 
             try {
                 // Fetch pending resolves (local or external)
-                const pendingResolves = await getPendingResolves();
+                const allPending = await getPendingResolves();
+                const pendingResolves = allPending.filter(item => item.reason && item.reason.trim().length > 0);
 
                 const start = (pageNum - 1) * pageSize;
                 const end = start + pageSize;

@@ -6,7 +6,7 @@ export function registerReadPendingResolve(server: McpServer) {
     server.registerTool(
         "read_pending_resolution",
         {
-            description: "Read the details of a conflict that is pending resolution. Returns the file content, diff, and reason.",
+            description: "Read the detailed information of a pending resolution. Returns the full file content, git diff (modification details), and the reason for the resolution.",
             inputSchema: z.object({
                 id: z.string().describe("The ID of the pending resolution file."),
             }),
