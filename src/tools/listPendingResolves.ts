@@ -12,10 +12,6 @@ export function registerListPendingResolves(server: McpServer) {
             }),
         },
         async ({ page }) => {
-            const { getReviewMode } = await import("../webui/server.js");
-            if (!getReviewMode()) {
-                return { content: [{ type: "text", text: "This tool is only available in review mode (--review)." }], isError: true };
-            }
 
             const pageNum = page || 1;
             const pageSize = 20;

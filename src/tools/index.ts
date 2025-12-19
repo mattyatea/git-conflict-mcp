@@ -6,11 +6,13 @@ import { registerResolveConflict } from "./resolveConflict.js";
 import { registerPostResolve } from "./postResolve.js";
 import { registerListPendingResolves } from "./listPendingResolves.js";
 
-export function registerTools(server: McpServer) {
+export function registerTools(server: McpServer, isReviewMode: boolean = false) {
     registerInitProject(server);
     registerListConflicts(server);
     registerReadConflict(server);
     registerResolveConflict(server);
     registerPostResolve(server);
-    registerListPendingResolves(server);
+    if (isReviewMode) {
+        registerListPendingResolves(server);
+    }
 }

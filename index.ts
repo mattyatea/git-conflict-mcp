@@ -66,7 +66,8 @@ const mcpServer = new McpServer({
     { capabilities: { tools: {} } });
 
 // Register Tools
-registerTools(mcpServer);
+// Register Tools
+registerTools(mcpServer, reviewMode);
 
 // Start MCP server (stdio)
 const transport = new StdioServerTransport();
