@@ -1,3 +1,6 @@
+/**
+ * Tool for resolving pending conflicts.
+ */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { approvePendingResolve, rejectPendingResolve } from "../webui/server.js";
