@@ -65,10 +65,17 @@ export function registerResolveConflict(server: McpServer) {
                     return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
                 }
 
+                // Check for status if returned by addPendingResolve (need to cast until typed)
+                const status = (result as any).status;
+                let msg = `Request sent!\n\nFile: ${fileToResolve}`;
+                if (status === 'draft') {
+                    msg += `\n\nWARNING: The resolution reason was too generic. This item has been marked as 'Draft' and will NOT appear in the review list until the reason is updated.`;
+                }
+
                 return {
                     content: [{
                         type: "text",
-                        text: `Request sent!\n\nFile: ${fileToResolve}`
+                        text: msg
                     }]
                 };
 

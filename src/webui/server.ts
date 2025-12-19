@@ -35,6 +35,7 @@ export interface PendingResolve {
     fileContent?: string;     // Current file content (if exists)
     gitDiff?: string;         // Git diff output
     timestamp: number;
+    status: 'draft' | 'pending_review';
 }
 
 // In-memory pending resolves
@@ -76,13 +77,8 @@ export async function getPendingResolves(): Promise<PendingResolve[]> {
         items = Array.from(pendingResolves.values());
     }
 
-    // Filter out items that haven't been properly reviewed
-    // We hide items with no reason or generic "resolve"/"resolved" reasons
-    return items.filter(item =>
-        item.reason &&
-        item.reason.trim().length > 0 &&
-        !['resolve', 'resolved'].includes(item.reason.trim().toLowerCase())
-    );
+    // Filter based on status - only show items ready for review
+    return items.filter(item => item.status === 'pending_review');
 }
 
 import { generateId } from "../lib/id.js";
@@ -122,7 +118,7 @@ export async function addPendingResolve(data: {
     projectPath: string;
     type: "resolve" | "delete" | "add";
     reason?: string;
-}): Promise<{ success: boolean; id?: string; error?: string }> {
+}): Promise<{ success: boolean; id?: string; error?: string; status?: string }> {
     if (externalWebUIUrl) {
         try {
             const res = await fetch(`${externalWebUIUrl}/api/add`, {
@@ -139,12 +135,15 @@ export async function addPendingResolve(data: {
 
     // Local
     try {
-        const id = generateId(data.filePath); // Use consistent ID
+        // Check for generic reasons
+        const cleanReason = (data.reason || "").trim();
+        const lowerReason = cleanReason.toLowerCase().replace(/[.,!]/g, '');
+        const genericReasons = ['resolve', 'resolved', 'fix', 'fixed', 'conflict resolved', 'resolved conflict', 'auto resolve', 'auto resolved'];
+        const isGeneric = genericReasons.includes(lowerReason);
 
-        // Check if already exists?
-        // If we want to overwrite, we can just set it.
-        // It provides deduplication automatically.
+        const status = (cleanReason.length === 0 || isGeneric) ? 'draft' : 'pending_review';
 
+        const id = generateId(data.filePath);
         const fileContent = await getFileContent(data.absolutePath);
         const gitDiff = await getGitDiff(data.filePath, data.projectPath);
 
@@ -158,10 +157,11 @@ export async function addPendingResolve(data: {
             fileContent,
             gitDiff,
             timestamp: Date.now(),
+            status
         };
 
         pendingResolves.set(id, pending);
-        return { success: true, id };
+        return { success: true, id, status };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
