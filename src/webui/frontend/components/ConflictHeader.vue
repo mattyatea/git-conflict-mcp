@@ -67,10 +67,10 @@ const handleModalConfirm = (comment: string) => {
          <div class="text-base font-medium truncate font-mono text-text-primary select-all" :title="selectedItem.filePath">
            {{ selectedItem.filePath }}
          </div>
-         <div v-if="selectedItem.reason" class="text-xs text-text-secondary mt-1 flex gap-1.5 break-all">
-           <span class="opacity-60 whitespace-nowrap">Reason:</span>
-           <span class="font-medium text-text-primary">{{ selectedItem.reason }}</span>
-         </div>
+          <div v-if="selectedItem.reason" class="mt-2 text-xs text-text-primary bg-bg-tertiary/50 border border-border-color/50 rounded-md px-2.5 py-1.5 flex gap-2 items-start max-w-2xl">
+            <span class="mt-0.5 opacity-60 text-[11px]">📝</span>
+            <span class="leading-relaxed whitespace-pre-wrap break-all">{{ selectedItem.reason }}</span>
+          </div>
        </div>
      </div>
 

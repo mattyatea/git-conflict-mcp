@@ -14,11 +14,11 @@ export const editors: EditorOption[] = [
     { id: 'antigravity', label: 'AntiGravity' }
 ]
 
-export function useEditorSettings() {
-    const showOpenMenu = ref(false)
-    const showSettings = ref(false)
-    const preferredEditor = ref<EditorType | null>(null)
+const showOpenMenu = ref(false)
+const showSettings = ref(false)
+const preferredEditor = ref<EditorType | null>(null)
 
+export function useEditorSettings() {
     const loadSettings = () => {
         const saved = localStorage.getItem('gc-preferred-editor')
         if (saved && editors.some(e => e.id === saved)) {
