@@ -6,7 +6,7 @@ export function registerListPendingResolves(server: McpServer) {
     server.registerTool(
         "list_pending_resolutions",
         {
-            description: "List conflicts that are pending resolution (waiting for review). Returns a list of pending items with their IDs, file paths, and resolution types. Use this to review proposed changes.",
+            description: "List conflicts that are pending resolution. Returns a simplified list containing only the file ID and file path. Use read_pending_resolution to see details.",
             inputSchema: z.object({
                 page: z.number().optional().describe("Page number (1-based). Default is 1."),
             }),
@@ -27,9 +27,6 @@ export function registerListPendingResolves(server: McpServer) {
                 const result = slice.map(item => ({
                     id: item.id,
                     filePath: item.filePath,
-                    type: item.type,
-                    reason: item.reason,
-                    timestamp: new Date(item.timestamp).toISOString()
                 }));
 
                 const response: Record<string, any> = {

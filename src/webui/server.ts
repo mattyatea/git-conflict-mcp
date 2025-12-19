@@ -157,6 +157,92 @@ export async function addPendingResolve(data: {
     }
 }
 
+// Approve a pending resolve
+export async function approvePendingResolve(id: string, comment?: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (externalWebUIUrl) {
+        try {
+            const res = await fetch(`${externalWebUIUrl}/api/approve/${id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ comment })
+            });
+            return await res.json() as any;
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    const pending = pendingResolves.get(id);
+    if (!pending) {
+        return { success: false, error: "Not found" };
+    }
+
+    try {
+        if (comment) {
+            console.error(`[Resolution Comment for ${pending.filePath}]: ${comment}`);
+            if (conflictLogger) {
+                conflictLogger(comment);
+            }
+        }
+
+        let message: string;
+        switch (pending.type) {
+            case "delete":
+                await runGit(["rm", pending.filePath], pending.projectPath);
+                message = `Deleted (git rm) ${pending.filePath}`;
+                break;
+            case "add":
+            case "resolve":
+            default:
+                await runGit(["add", pending.filePath], pending.projectPath);
+                message = `Resolved (git add) ${pending.filePath}`;
+                break;
+        }
+
+        pendingResolves.delete(id);
+        return { success: true, message };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+// Reject a pending resolve
+export async function rejectPendingResolve(id: string, comment?: string): Promise<{ success: boolean; error?: string }> {
+    if (externalWebUIUrl) {
+        try {
+            const res = await fetch(`${externalWebUIUrl}/api/reject/${id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ comment })
+            });
+            return await res.json() as any;
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    const pending = pendingResolves.get(id);
+    if (!pendingResolves.has(id)) {
+        return { success: false, error: "Not found" };
+    }
+
+    try {
+        if (comment && pending) {
+            console.error(`[Rejection Comment for ${pending.filePath}]: ${comment}`);
+            state.addRejection(pending.filePath, comment);
+
+            if (conflictLogger) {
+                conflictLogger(`REJECTED: ${pending.filePath}. Reason: ${comment}`);
+            }
+        }
+
+        pendingResolves.delete(id);
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 // Serve static files
 async function serveStatic(req: http.IncomingMessage, res: http.ServerResponse, filePath: string) {
     try {
@@ -272,37 +358,6 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     if (pathname.startsWith("/api/approve/") && method === "POST") {
         const id = pathname.replace("/api/approve/", "");
-
-        if (externalWebUIUrl) {
-            // Proxy to external WebUI
-            let body = "";
-            req.on("data", chunk => body += chunk);
-            req.on("end", async () => {
-                try {
-                    const resExt = await fetch(`${externalWebUIUrl}${pathname}`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: body || "{}"
-                    });
-                    const data = await resExt.json() as any;
-                    res.writeHead(resExt.status, { "Content-Type": "application/json" });
-                    res.end(JSON.stringify(data));
-                } catch (e: any) {
-                    res.writeHead(500, { "Content-Type": "application/json" });
-                    res.end(JSON.stringify({ success: false, error: e.message }));
-                }
-            });
-            return;
-        }
-
-        const pending = pendingResolves.get(id);
-
-        if (!pending) {
-            res.writeHead(404, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: false, error: "Not found" }));
-            return;
-        }
-
         let body = "";
         req.on("data", chunk => body += chunk);
         req.on("end", async () => {
@@ -313,35 +368,17 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                         const data = JSON.parse(body);
                         comment = data.comment || "";
                     } catch (e) {
-                        // Ignore JSON parse error if body is empty or invalid, just proceed without comment
+                        // Ignore
                     }
                 }
-
-                if (comment) {
-                    console.error(`[Resolution Comment for ${pending.filePath}]: ${comment}`);
-                    if (conflictLogger) {
-                        conflictLogger(comment);
-                    }
+                const result = await approvePendingResolve(id, comment);
+                if (result.success) {
+                    res.writeHead(200, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(result));
+                } else {
+                    res.writeHead(result.error === "Not found" ? 404 : 500, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(result));
                 }
-
-                let message: string;
-                switch (pending.type) {
-                    case "delete":
-                        await runGit(["rm", pending.filePath], pending.projectPath);
-                        message = `Deleted (git rm) ${pending.filePath}`;
-                        break;
-                    case "add":
-                    case "resolve":
-                    default:
-                        await runGit(["add", pending.filePath], pending.projectPath);
-                        message = `Resolved (git add) ${pending.filePath}`;
-                        break;
-                }
-
-                pendingResolves.delete(id);
-
-                res.writeHead(200, { "Content-Type": "application/json" });
-                res.end(JSON.stringify({ success: true, message }));
             } catch (e: any) {
                 res.writeHead(500, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: false, error: e.message }));
@@ -352,37 +389,6 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     if (pathname.startsWith("/api/reject/") && method === "POST") {
         const id = pathname.replace("/api/reject/", "");
-
-        if (externalWebUIUrl) {
-            // Proxy to external WebUI
-            let body = "";
-            req.on("data", chunk => body += chunk);
-            req.on("end", async () => {
-                try {
-                    const resExt = await fetch(`${externalWebUIUrl}${pathname}`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: body || "{}"
-                    });
-                    const data = await resExt.json() as any;
-                    res.writeHead(resExt.status, { "Content-Type": "application/json" });
-                    res.end(JSON.stringify(data));
-                } catch (e: any) {
-                    res.writeHead(500, { "Content-Type": "application/json" });
-                    res.end(JSON.stringify({ success: false, error: e.message }));
-                }
-            });
-            return;
-        }
-
-        const pending = pendingResolves.get(id);
-
-        if (!pendingResolves.has(id)) {
-            res.writeHead(404, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: false, error: "Not found" }));
-            return;
-        }
-
         let body = "";
         req.on("data", chunk => body += chunk);
         req.on("end", async () => {
@@ -393,23 +399,17 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
                         const data = JSON.parse(body);
                         comment = data.comment || "";
                     } catch (e) {
-                        // Ignore JSON parse error
+                        // Ignore
                     }
                 }
-
-                if (comment && pending) {
-                    console.error(`[Rejection Comment for ${pending.filePath}]: ${comment}`);
-                    state.addRejection(pending.filePath, comment);
-
-                    if (conflictLogger) {
-                        conflictLogger(`REJECTED: ${pending.filePath}. Reason: ${comment}`);
-                    }
+                const result = await rejectPendingResolve(id, comment);
+                if (result.success) {
+                    res.writeHead(200, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(result));
+                } else {
+                    res.writeHead(result.error === "Not found" ? 404 : 500, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify(result));
                 }
-
-                pendingResolves.delete(id);
-
-                res.writeHead(200, { "Content-Type": "application/json" });
-                res.end(JSON.stringify({ success: true }));
             } catch (e: any) {
                 res.writeHead(500, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ success: false, error: e.message }));
