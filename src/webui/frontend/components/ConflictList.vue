@@ -41,6 +41,7 @@ const { showSettings } = useEditorSettings()
           <div class="flex items-start justify-between gap-2 mb-1">
              <div class="font-medium truncate leading-tight" :title="item.filePath">
                {{ item.filePath.split('/').pop() }}
+               <span v-if="item.reason" class="ml-1 text-[10px]" title="その他、理由/コメントあり">📝</span>
              </div>
              <span class="shrink-0 text-[10px] font-mono opacity-50">{{ formatTime(item.timestamp).split(' ')[1] }}</span>
           </div>

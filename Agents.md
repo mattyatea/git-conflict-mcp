@@ -1,6 +1,5 @@
 # Rule
-Once you've completed the task, please commit your changes.
-Also, depending on the nature of the modification, use `npm patch minor` appropriately to bump the version.
+
 
 # Design
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.

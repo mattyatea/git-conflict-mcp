@@ -55,9 +55,9 @@ const handleModalConfirm = (comment: string) => {
 </script>
 
 <template>
-  <header v-if="selectedItem" class="h-16 flex items-center justify-between px-6 border-b border-border-color bg-bg-primary shrink-0">
+  <header v-if="selectedItem" class="min-h-16 py-2 flex items-center justify-between px-6 border-b border-border-color bg-bg-primary shrink-0">
      <div class="flex items-center gap-4 overflow-hidden">
-       <div class="p-2 rounded bg-bg-tertiary border border-border-color text-xl">
+       <div class="p-2 rounded bg-bg-tertiary border border-border-color text-xl self-start mt-0.5">
          📄
        </div>
        <div class="min-w-0">
@@ -66,6 +66,10 @@ const handleModalConfirm = (comment: string) => {
          </div>
          <div class="text-base font-medium truncate font-mono text-text-primary select-all" :title="selectedItem.filePath">
            {{ selectedItem.filePath }}
+         </div>
+         <div v-if="selectedItem.reason" class="text-xs text-text-secondary mt-1 flex gap-1.5 break-all">
+           <span class="opacity-60 whitespace-nowrap">Reason:</span>
+           <span class="font-medium text-text-primary">{{ selectedItem.reason }}</span>
          </div>
        </div>
      </div>
