@@ -65,14 +65,10 @@ export function registerResolveConflict(server: McpServer) {
                     return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
                 }
 
-                const port = process.env.WEBUI_PORT || "3456";
-                const webUrl = `http://localhost:${port}`;
-
-                const typeLabel = resolutionType === "delete" ? "削除" : resolutionType === "add" ? "追加" : "解決";
                 return {
                     content: [{
                         type: "text",
-                        text: `✅ 解決リクエストをWebUIに送信しました。\n\nファイル: ${fileToResolve}\nタイプ: ${typeLabel}\n理由: ${reason || "(なし)"}\nWebUI: ${webUrl}\n\n人間が確認後、実際の解決が実行されます。`
+                        text: `Request sent!\n\nFile: ${fileToResolve}`
                     }]
                 };
 

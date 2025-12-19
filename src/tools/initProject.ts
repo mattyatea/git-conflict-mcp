@@ -19,7 +19,7 @@ export function registerInitProject(server: McpServer) {
                     return { content: [{ type: "text", text: "Path is not a directory." }], isError: true };
                 }
                 state.setProjectPath(p);
-                return { content: [{ type: "text", text: `Project initialized at ${p}` }] };
+                return { content: [{ type: "text", text: `initialized at ${p}` }] };
             } catch (e) {
                 return { content: [{ type: "text", text: `Invalid path: ${e}` }], isError: true };
             }
