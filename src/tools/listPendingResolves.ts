@@ -10,6 +10,15 @@ export function registerListPendingResolves(server: McpServer) {
             inputSchema: z.object({
                 page: z.number().optional().describe("Page number (1-based). Default is 1."),
             }),
+            outputSchema: z.object({
+                pending: z.array(z.object({
+                    id: z.string(),
+                    filePath: z.string(),
+                })).describe("List of pending resolutions."),
+                total: z.number().describe("Total number of pending resolutions."),
+                page: z.number().describe("Current page number."),
+                hasMore: z.boolean().optional().describe("True if there are more pages.")
+            })
         },
         async ({ page }) => {
 
@@ -39,7 +48,10 @@ export function registerListPendingResolves(server: McpServer) {
                     response["hasMore"] = true;
                 }
 
-                return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                    structuredContent: response
+                };
             } catch (e: any) {
                 return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
             }

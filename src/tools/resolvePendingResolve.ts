@@ -12,12 +12,21 @@ export function registerResolvePendingResolve(server: McpServer) {
                 decision: z.enum(["approve", "reject"]).describe("The decision: 'approve' or 'reject'."),
                 comment: z.string().optional().describe("Optional comment explaining the decision (required if rejecting)."),
             }),
+            outputSchema: z.object({
+                success: z.boolean().describe("Whether the operation was successful."),
+                message: z.string().optional().describe("Success message."),
+                error: z.string().optional().describe("Error message if failed.")
+            })
         },
         async ({ id, decision, comment }) => {
             if (decision === "reject" && !comment) {
                 return {
                     content: [{ type: "text", text: "Error: Comment is required when rejecting a resolution." }],
-                    isError: true
+                    isError: true,
+                    structuredContent: {
+                        success: false,
+                        error: "Comment is required when rejecting a resolution."
+                    }
                 };
             }
 
@@ -32,7 +41,11 @@ export function registerResolvePendingResolve(server: McpServer) {
                 if (!result.success) {
                     return {
                         content: [{ type: "text", text: `Error: ${result.error}` }],
-                        isError: true
+                        isError: true,
+                        structuredContent: {
+                            success: false,
+                            error: result.error
+                        }
                     };
                 }
 
@@ -41,7 +54,11 @@ export function registerResolvePendingResolve(server: McpServer) {
                     : "Rejected resolution.";
 
                 return {
-                    content: [{ type: "text", text: msg }]
+                    content: [{ type: "text", text: msg }],
+                    structuredContent: {
+                        success: true,
+                        message: msg
+                    }
                 };
 
             } catch (e: any) {

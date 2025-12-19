@@ -10,6 +10,15 @@ export function registerReadPendingResolve(server: McpServer) {
             inputSchema: z.object({
                 id: z.string().describe("The ID of the pending resolution file."),
             }),
+            outputSchema: z.object({
+                id: z.string().describe("The ID of the pending resolution file."),
+                filePath: z.string().describe("The path of the file."),
+                type: z.string().describe("The type of the conflict (add, remove, modify)."),
+                reason: z.string().optional().describe("The reason for the conflict."),
+                gitDiff: z.string().optional().describe("The git diff of the conflict."),
+                fileContent: z.string().optional().describe("The content of the file."),
+                timestamp: z.string().describe("The timestamp of the conflict.")
+            })
         },
         async ({ id }) => {
             const pending = await getPendingResolves();
@@ -22,19 +31,22 @@ export function registerReadPendingResolve(server: McpServer) {
                 };
             }
 
+            const structuredData = {
+                id: found.id,
+                filePath: found.filePath,
+                type: found.type,
+                reason: found.reason,
+                gitDiff: found.gitDiff,
+                fileContent: found.fileContent,
+                timestamp: new Date(found.timestamp).toISOString()
+            };
+
             return {
                 content: [{
                     type: "text",
-                    text: JSON.stringify({
-                        id: found.id,
-                        filePath: found.filePath,
-                        type: found.type,
-                        reason: found.reason,
-                        gitDiff: found.gitDiff,
-                        fileContent: found.fileContent,
-                        timestamp: new Date(found.timestamp).toISOString()
-                    }, null, 2)
-                }]
+                    text: JSON.stringify(structuredData, null, 2)
+                }],
+                structuredContent: structuredData
             };
         }
     );
