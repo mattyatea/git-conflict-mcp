@@ -111,7 +111,8 @@ async function shutdown(signal: string) {
         // Ignore errors during shutdown
     }
 
-    process.exit(0);
+    // Do not force exit, let the event loop drain
+    // process.exit(0);
 }
 
 // Register signal handlers

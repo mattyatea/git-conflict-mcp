@@ -62,17 +62,27 @@ export function setConflictLogger(logger: (message: string) => void) {
 
 // Get all pending resolves (local or external)
 export async function getPendingResolves(): Promise<PendingResolve[]> {
+    let items: PendingResolve[] = [];
     if (externalWebUIUrl) {
         try {
             const res = await fetch(`${externalWebUIUrl}/api/pending`);
             if (!res.ok) throw new Error(`External WebUI returned ${res.status}`);
-            return await res.json() as PendingResolve[];
+            items = await res.json() as PendingResolve[];
         } catch (e) {
             console.error("Failed to fetch from external WebUI:", e);
-            return [];
+            items = [];
         }
+    } else {
+        items = Array.from(pendingResolves.values());
     }
-    return Array.from(pendingResolves.values());
+
+    // Filter out items that haven't been properly reviewed
+    // We hide items with no reason or generic "resolve"/"resolved" reasons
+    return items.filter(item =>
+        item.reason &&
+        item.reason.trim().length > 0 &&
+        !['resolve', 'resolved'].includes(item.reason.trim().toLowerCase())
+    );
 }
 
 import { generateId } from "../lib/id.js";

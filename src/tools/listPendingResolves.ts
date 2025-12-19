@@ -28,7 +28,11 @@ export function registerListPendingResolves(server: McpServer) {
             try {
                 // Fetch pending resolves (local or external)
                 const allPending = await getPendingResolves();
-                const pendingResolves = allPending.filter(item => item.reason && item.reason.trim().length > 0);
+                const pendingResolves = allPending.filter(item =>
+                    item.reason &&
+                    item.reason.trim().length > 0 &&
+                    !['resolve', 'resolved'].includes(item.reason.trim().toLowerCase())
+                );
 
                 const start = (pageNum - 1) * pageSize;
                 const end = start + pageSize;
